@@ -1,0 +1,9 @@
+*.jpg
+*.jpeg
+*.png
+*.json
+*.pt
+*.pth
+*.zip
+*.tar
+&.tar.gz
