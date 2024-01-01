@@ -126,7 +126,7 @@ class Inference:
 
 
 if __name__ == "__main__":
-    checkpoint_dir = "arch[DeepLabX]-out_layer_size[256]-in_channels[3]-backbone[resnet50]-output_stride[16]-freeze_bn[False]-freeze_backbone[False]-version[example]"
+    checkpoint_dir = "arch[UNetResnet]-out_layer_size[512]-in_channels[3]-backbone[resnet18]-output_stride[16]-freeze_bn[False]-freeze_backbone[False]-version[example]"
 
     cfg = load_config(
         "config.yml"

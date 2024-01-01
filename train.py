@@ -109,7 +109,6 @@ def main(cfg):
 
             if cnt % 2000 == 0 and cnt != 0:
                 model.eval()
-                model.save_checkpoint(path=checkpoint_path, epoch=epoch)
                 precisions, max_precision = evaluate_with_knn(cfg, dl_ev, model, exclude_background=True, rng=100)
                 precisions = ["{:.2f}".format(elm) for elm in precisions]
                 with open(os.path.join(checkpoint_dir, "validation_logs.txt"), "a+") as fp:
@@ -117,6 +116,7 @@ def main(cfg):
                 model.train()
 
             if (cnt+1) % 500 == 0 and cnt != 0:
+                model.save_checkpoint(path=checkpoint_path, epoch=epoch)
                 scheduler_loss.append(loss)
                 scheduler.step(np.mean(scheduler_loss))
                 print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.0000005)

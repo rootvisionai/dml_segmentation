@@ -60,7 +60,7 @@ inference:
   device: "cuda"
   support_image: "./inference_data/support/emblem_test_q_1.jpg"
   support_annotation: "./inference_data/support/emblem_test_q_1.json"
-  query_image: "./inference_data/query/emblem_rain.jpg"
+  query_image: "./inference_data/query/emblem_test_q_2.jpg"
   num_of_neighbors: 4
 
 #-- Guidance for models' configuration --#
