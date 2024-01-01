@@ -59,4 +59,44 @@ def evaluate(cfg, dl_ev, model, rng=10):
     model.train()
     return mean_validation_loss
 
+def evaluate_with_knn(cfg, dl_ev, model, exclude_background=True, rng=0):
+    print(f"Starting to evaluate | Exclude Background: {exclude_background}")
+
+    precisions = []
+    pbar = tqdm.tqdm(enumerate(dl_ev))
+    for i, (image, mask) in pbar:
+        m_ = mask.to(torch.int8).to(cfg.training.device).argmax(dim=1).unsqueeze(1)
+
+        if rng != 0:
+            if i == rng:
+                break
+
+        precisions_ = []
+        for k in [1, 2, 4, 8]:
+            output = []
+            for b in range(mask.shape[0]):
+                output.append(model.predict_few_shot(si=image, sm=mask, qi=image[b].unsqueeze(0), k=k, device=cfg.training.device)[0])
+            output = torch.stack(output, dim=0)
+
+            if exclude_background:
+                r = torch.where(output[m_ != 0] == m_[m_ != 0], 1, 0)
+                p_at_k_ = r.sum() / r.flatten().shape[0]
+            else:
+                r = torch.where(output == m_, 1, 0)
+                p_at_k_ = r.sum() / r.flatten().shape[0]
+
+            if not torch.isnan(p_at_k_):
+                precisions_.append(p_at_k_.item())
+
+            pbar.set_description(f"| {i}/{len(dl_ev)} | PRECISION @ {k} NEIGHBOURS : {100 * p_at_k_}")
+
+        if len(precisions_) > 0:
+            precisions.append(max(precisions_))
+
+    p_at_k = sum(precisions) / len(precisions) if len(precisions) > 0 else 0
+    print(f"mAP: {p_at_k}\n")
+
+    return precisions, p_at_k
+
+
 

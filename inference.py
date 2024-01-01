@@ -1,170 +1,146 @@
 import os
-import time
-
-import torch
-import torchvision
-import numpy as np
+import json
 import cv2
+import torch
+import numpy as np
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 import models
 from utils import load_config
 
+from itertools import permutations
+from random import shuffle
 
+color_numbers = list(range(32, 255, 32))
+COLORMAP = list(permutations(color_numbers, 3))
+shuffle(COLORMAP)
+COLORMAP = torch.tensor(COLORMAP)
 
 class Inference:
-    def __init__(self, cfg, checkpoint_path):
+    def __init__(self, cfg, checkpoint_path, label_map_path):
         self.cfg = cfg
+        self.device = cfg.inference.device
         # get model
-        self.model = models.load(cfg)
-        self.model.to(cfg.inference.device)
+        model = models.load(cfg)
+        model = model.to(torch.float16)
+        self.model = model.to(self.device)
         self.model.eval()
 
-        last_epoch = self.model.load_checkpoint(checkpoint_path, train=False, device=cfg.training.device)
+        last_epoch = self.model.load_checkpoint(checkpoint_path, device=cfg.training.device, load_opt=False)
 
         print(
             f"Loaded model: {checkpoint_path}\n",
             f"Last epoch: {last_epoch}"
         )
-        self.colors = [
-            (0, 0, 0),
-            (255, 0, 255)
-        ]
 
-    def preprocess(self, image_paths, size=(256, 256)):
-        images = []
-        out_sizes = []
-        originals = []
-        for path in image_paths:
-            image = cv2.imread(path)  # load
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # to rgb
-            image = torch.from_numpy(image)  # to uint8 tensor
-            out_sizes.append(tuple(image.shape[0:2]))
+        self.transform = self.define_transform()
+        self.get_labels(label_map_path)
 
-            image = image.permute(2, 0, 1).unsqueeze(0) / 255  # to [0,1] range bs 1 float32 tensor
-            image = torchvision.transforms.functional.crop(image, top=0, left=450, height=2048, width=1480) # x_min=450, y_min=0, x_max=1930, y_max=2048
-            originals.append(torch.nn.functional.interpolate(image, size=self.cfg.inference.out_size).squeeze(0))
+    def define_transform(self):
+        val_transform = A.Compose(
+            [
+                A.augmentations.crops.transforms.Crop(
+                    x_min=self.cfg.data.crop_image.x_min,
+                    y_min=self.cfg.data.crop_image.y_min,
+                    x_max=self.cfg.data.crop_image.x_max,
+                    y_max=self.cfg.data.crop_image.y_max,
+                    p=self.cfg.data.crop_image.status
+                ),
+                A.Resize(self.cfg.data.input_size, self.cfg.data.input_size),
+                ToTensorV2()
+            ]
+        )
+        return val_transform
 
-            image = torch.nn.functional.interpolate(image, size=size, mode="nearest")
-            images.append(image[0])
+    def get_labels(self, path):
+        with open(path, "r") as fp:
+            self.label_map = json.load(fp)
 
-        images = torch.stack(images, dim=0)
-        return originals, images, out_sizes
+    def convert_points_and_labels_to_mask(self, points_labels, image_height, image_width):
+        canvas_binary = np.zeros((image_height, image_width, max(list(self.label_map.values())) + 1), dtype=np.uint8)
 
-    def load_images(self, input_dir):
-        self.image_paths = [os.path.join(input_dir, elm) for elm in os.listdir(input_dir)]
-        originals, inputs, out_sizes = self.preprocess(self.image_paths, size=(cfg.data.input_size, cfg.data.input_size))
-        return originals, inputs, out_sizes
+        for pt_lb in points_labels:
+            canvas_temp = np.zeros((image_height, image_width, 1), dtype=np.uint8)
 
-    def process(self, inputs):
-        print(f"Running inference on images: {inputs.shape}")
-        inputs = inputs.to(cfg.inference.device)
-        preds, confs = self.model.infer(inputs)
-        return preds, confs
+            pt = pt_lb[0]
+            pt = np.array(pt).reshape(-1, 2).astype(np.int32)
 
-    def postprocess(self, preds, out_size):
-        processed = []
-        for bs in range(preds.shape[0]):
-            intermediate = []
-            for ch in range(self.cfg.model.num_classes):
-                pred = preds[bs].unsqueeze(0)
-                pred = torch.nn.functional.interpolate(pred, size=out_size, mode="nearest")
-                p = torch.zeros_like(pred)
-                coords = torch.where(pred == ch)
-                p[:, :, coords[2], coords[3]] = 1.
-                intermediate.append(p.squeeze(0).squeeze(0))
-            intermediate = torch.stack(intermediate, dim=0)
-            processed.append(intermediate)
-        processed = torch.stack(processed, dim=0)
-        return processed
+            lb = pt_lb[1]
+            lb_int = self.label_map[lb]
+            cv2.fillPoly(canvas_temp, [pt], (255, 255, 255))
+            row_coord, col_coord = np.where((canvas_temp / 255).mean(axis=2) == 1)
+            canvas_binary[row_coord, col_coord, lb_int] = 1
 
-    def pipeline(self, input_dir, output_dir):
-        originals, inputs, out_sizes = self.load_images(input_dir)
-        st = time.time()
-        preds, confs = self.process(inputs)
-        et = time.time()
-        print(f"INFERENCE TIME: {et-st}")
-        preds = self.postprocess(preds, self.cfg.inference.out_size)
-        rendered_images = []
+        return canvas_binary
 
-        for bs in range(preds.shape[0]):
-            original = (255*originals[bs].permute(1, 2, 0).numpy()).astype(np.uint8)
+    def load_mask(self, fullpath):
+        with open(fullpath, "r") as fp:
+            annotations = json.load(fp)
+            points_labels = [(elm["points"], elm["label"]) for elm in annotations["shapes"]]
+            image_height = annotations["imageHeight"]
+            image_width = annotations["imageWidth"]
 
-            for ch in range(1, preds.shape[1]):
-                p = (255*preds[bs, ch].cpu().numpy()).astype(np.uint8)
-                rendered = self.render_mask(original, p, ch)
-                polygon_pts = instance.convert_to_polygon(p)
-                bbox_pts = instance.convert_to_bbox(polygon_pts)
-                rendered = instance.render_bbox(rendered, bbox_pts)
-                if len(polygon_pts)>0:
-                    save_dir = os.path.join(output_dir, f"{bs}_{ch}.jpg")
-                    cv2.imwrite(save_dir, rendered)
+        mask = self.convert_points_and_labels_to_mask(points_labels, image_height, image_width)
+        return mask
 
-            rendered_images.append(rendered)
-        return rendered_images
+    def load_inputs(self, image_path, annotation_path=None):
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.original_size = image.shape[0:2][::-1]
 
-    def render_mask(self, input_image, pred, cnt):
-        color = np.array(self.colors[cnt], dtype='uint8')
-        masked_img = np.where(pred[..., None] > 0.9*255, color, input_image)
-        out = cv2.addWeighted(input_image, 0.5, masked_img, 0.5, 0)
-        out = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
+        if annotation_path:
+            mask = self.load_mask(annotation_path)
+            transformed = self.transform(image=image, mask=mask)
+            image = transformed["image"] / 255
+            mask = transformed["mask"]
+            mask = mask.permute(2, 0, 1)
+            return image.unsqueeze(0), mask.unsqueeze(0)
+
+        else:
+            transformed = self.transform(image=image)
+            image = transformed["image"] / 255
+            return image.unsqueeze(0)
+
+    def define_support(self, image_path, annot_path):
+        self.support_image, self.support_mask = self.load_inputs(image_path=image_path, annotation_path=annot_path)
+
+    def process(self, query_image_path):
+        query_image = self.load_inputs(query_image_path, annotation_path=None)
+        out = self.model.predict_few_shot(self.support_image, self.support_mask, query_image, k=self.cfg.inference.num_of_neighbors, device="cuda")
         return out
 
-    def convert_to_polygon(self, mask):
-        coords = np.column_stack(np.where(mask > 0.9*255))
-        return coords
+    def postprocess(self, inference_output):
+        inference_output = inference_output.squeeze(1)
+        colored_image = COLORMAP.to(self.device)[inference_output][0].to(torch.uint8).cpu().numpy()
 
-    def convert_to_bbox(self, polygon_points):
-        if len(polygon_points) > 0:
-            ymin = polygon_points[:, 0].min()
-            xmin = polygon_points[:, 1].min()
-            ymax = polygon_points[:, 0].max()
-            xmax = polygon_points[:, 1].max()
-        else:
-            ymin = xmin = ymax = xmax = 0
-        return {
-            "xmin": xmin,
-            "xmax": xmax,
-            "ymin": ymin,
-            "ymax": ymax
-        }
+        try:
+            colored_image = cv2.resize(colored_image, self.original_size)
+        except cv2.error as e:
+            print("Error resizing image:", e)
+            print("Image shape:", colored_image.shape)
+            print("Target size:", self.original_size)
+            raise
 
-    def render_bbox(self, img, bbox):
-        cv2.rectangle(img, (bbox["xmin"], bbox["ymin"]), (bbox["xmax"], bbox["ymax"]), (0, 255, 0), 1)
-        return img
-
-    def save_with_mask(self, input_dir, output_dir):
-        for bs in range(self.preds.shape[0]):
-            for ch in range(cfg.model.num_classes):
-                p = torch.zeros_like(self.originals[bs].unsqueeze(0))
-                pred = self.preds[bs].unsqueeze(0)
-                pred = torch.nn.functional.interpolate(pred, size=self.out_sizes[bs], mode="nearest")
-                coords_pos = torch.where(pred == ch)
-                coords_neg = torch.where(pred != ch)
-                p[:, :, coords_pos[2], coords_pos[3]] = self.originals[bs][:, coords_pos[2], coords_pos[3]]
-                p[:, :, coords_neg[2], coords_neg[3]] = self.originals[bs][:, coords_neg[2], coords_neg[3]] * 0.2
-                save_dir = self.image_paths[bs].replace(input_dir, output_dir)
-                save_dir = save_dir.replace(".jpg", f"_{bs}_{ch}.png")
-                torchvision.utils.save_image(p, save_dir)
+        return colored_image
 
 
 if __name__ == "__main__":
-    checkpoint_dir = "arch[UNetResnet]-num_classes[2]-in_channels[3]-backbone[resnet50]-output_stride[16]-freeze_bn[False]-freeze_backbone[False]"
+    checkpoint_dir = "arch[DeepLabX]-out_layer_size[256]-in_channels[3]-backbone[resnet50]-output_stride[16]-freeze_bn[False]-freeze_backbone[False]-version[example]"
 
     cfg = load_config(
         "config.yml"
     )
 
     checkpoint_path = os.path.join(
-        "checkpoints",
+        "logs",
         f"{checkpoint_dir}",
         "ckpt.pth"
     )
 
-    instance = Inference(cfg, checkpoint_path=checkpoint_path)
-    rendered = instance.pipeline(
-        input_dir="test_input",
-        output_dir="test_output"
-    )
-
-
+    instance = Inference(cfg, checkpoint_path=checkpoint_path, label_map_path=os.path.join("inference_data", "label_map.json"))
+    instance.define_support(image_path=cfg.inference.support_image, annot_path=cfg.inference.support_annotation)
+    output = instance.process(query_image_path=cfg.inference.query_image)
+    colored = instance.postprocess(output)
+    cv2.imwrite(filename="colored_output.jpg", img=colored)
 

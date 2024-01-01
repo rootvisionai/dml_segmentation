@@ -58,7 +58,7 @@ class decoder(nn.Module):
 
 class UNet(BaseModel):
     def __init__(self, num_classes, in_channels=3, freeze_bn=False, **_):
-        super(UNet, self).__init__()
+        super(UNet, self).__init__(out_layer=num_classes)
 
         self.start_conv = x2conv(in_channels, 64)
         self.down1 = encoder(64, 128)
@@ -123,7 +123,7 @@ class UNet(BaseModel):
 
 class UNetResnet(BaseModel):
     def __init__(self, num_classes, in_channels=3, backbone='resnet50', pretrained=True, freeze_bn=False, freeze_backbone=False, **_):
-        super(UNetResnet, self).__init__()
+        super(UNetResnet, self).__init__(out_layer=num_classes)
         model = getattr(resnet, backbone)(pretrained, norm_layer=nn.BatchNorm2d)
 
         self.initial = list(model.children())[:4]

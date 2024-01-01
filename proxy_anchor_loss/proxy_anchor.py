@@ -28,10 +28,11 @@ class ProxyAnchorLoss(torch.nn.Module):
         self.mrg = mrg
 
     def forward(self, X, T, proxies=None):
-        proxies = proxies.detach()
-        cos = F.linear(l2_norm(X), l2_norm(proxies))
+        # proxies = proxies.detach()
+        cos = F.linear(l2_norm(X), l2_norm(proxies)).to(torch.float32)
+        # cos_np = cos.detach().cpu().numpy()
 
-        P_one_hot = binarize(T=T, nb_classes=self.nb_classes)
+        P_one_hot = T  # binarize(T=T, nb_classes=self.nb_classes)
         N_one_hot = 1 - P_one_hot
 
         pos_exp = torch.exp(-self.alpha * (cos - self.mrg))
@@ -46,5 +47,8 @@ class ProxyAnchorLoss(torch.nn.Module):
         pos_term = torch.log(1 + P_sim_sum).sum() / num_valid_proxies
         neg_term = torch.log(1 + N_sim_sum).sum() / self.nb_classes
         loss = pos_term + neg_term
+
+        if torch.isnan(loss):
+            pass
 
         return loss

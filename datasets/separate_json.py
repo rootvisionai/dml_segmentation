@@ -9,17 +9,35 @@ import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
-import sys, os
+import os
 import json
 
 from itertools import permutations
-
-cv2.setNumThreads(0)
-cv2.ocl.setUseOpenCL(False)
+from functools import wraps
+import time
 
 color_numbers = list(range(32, 255, 32))
 COLORMAP = list(permutations(color_numbers, 3))
-print(len(COLORMAP))
+
+def timeit(func, debug=False):
+    @wraps(func)
+    def timeit_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        print(f'Function {args[0]}.{func.__name__} Took {total_time:.4f} seconds')
+        return result
+
+    @wraps(func)
+    def identity(*args, **kwargs):
+        result = func(*args, **kwargs)
+        return result
+
+    if debug:
+        return timeit_wrapper
+    else:
+        return identity
 
 class DATASET(object):
     def __init__(
@@ -75,6 +93,7 @@ class DATASET(object):
             segmentation_mask[:, :, 0] = label_index*np.all(mask == label, axis=-1).astype(float)
         return segmentation_mask
 
+    @timeit
     def load_mask(self, fullpath):
         with open(fullpath, "r") as fp:
             annotations = json.load(fp)
@@ -84,7 +103,8 @@ class DATASET(object):
         
         mask = self.convert_points_and_labels_to_mask(points_labels, image_height, image_width)
         return mask
-    
+
+    @timeit
     def convert_points_and_labels_to_mask(self, points_labels, image_height, image_width):
         canvas_binary = np.zeros((image_height, image_width, max(list(self.label_map.values()))+1), dtype=np.uint8)
         
@@ -95,17 +115,14 @@ class DATASET(object):
             pt = np.array(pt).reshape(-1, 2).astype(np.int32)
             
             lb = pt_lb[1]
-            lb_int = int(lb) # self.label_map[lb]
-            try:
-                color = COLORMAP[lb_int]
-            except:
-                print(lb, len(COLORMAP))
+            lb_int = self.label_map[lb]
             cv2.fillPoly(canvas_temp, [pt], (255, 255, 255))
             row_coord, col_coord = np.where( (canvas_temp/255).mean(axis=2) == 1 )
             canvas_binary[row_coord, col_coord, lb_int] = 1
             
         return canvas_binary
-    
+
+    @timeit
     def segmentation(self, index):
         image = cv2.imread(self.images[index])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -115,7 +132,7 @@ class DATASET(object):
             image = transformed["image"] / 255
             mask = transformed["mask"]
             mask = mask.permute(2, 0, 1)
-        return image, mask.to(torch.long)
+        return image, mask
 
     def __getitem__(self, i):
         return self.segmentation(i)
