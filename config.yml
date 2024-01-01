@@ -45,7 +45,7 @@ training:
   load_opt: False
   criterion: 'ProxyAnchor' # CrossEntropyLoss2d | DiceLoss | FocalLoss | CrossEntropyDiceLoss | BinaryCrossEntropyWithLogits2d
   epochs: 200
-  batch_size: 32
+  batch_size: 8
   learning_rate: 0.00001
   device: "cuda"
   num_workers: 4
@@ -53,8 +53,8 @@ training:
 proxy_anchor:
   alpha: 32
   margin: 0.8
-  lr: 0.1
-  steps: 3000
+  lr: 0.01
+  steps: 100
 
 inference:
   device: "cuda"
@@ -62,6 +62,7 @@ inference:
   support_annotation: "./inference_data/support/emblem_test_q_1.json"
   query_image: "./inference_data/query/emblem_test_q_2.jpg"
   num_of_neighbors: 4
+  threshold: 0.9
 
 #-- Guidance for models' configuration --#
 #  model = UNet(

@@ -75,7 +75,14 @@ def evaluate_with_knn(cfg, dl_ev, model, exclude_background=True, rng=0):
         for k in [1, 2, 4, 8]:
             output = []
             for b in range(mask.shape[0]):
-                output.append(model.predict_few_shot(si=image, sm=mask, qi=image[b].unsqueeze(0), k=k, device=cfg.training.device)[0])
+                output.append(model.predict_few_shot(
+                    si=image,
+                    sm=mask,
+                    qi=image[b].unsqueeze(0),
+                    k=k,
+                    threshold=cfg.inference.threshold,
+                    device=cfg.training.device
+                )[0])
             output = torch.stack(output, dim=0)
 
             if exclude_background:

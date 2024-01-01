@@ -37,7 +37,8 @@ class BaseModel(nn.Module):
         ckpt_dict = torch.load(path, map_location=device)
         self.load_state_dict(ckpt_dict["model_state_dict"]) if "model_state_dict" in ckpt_dict else 0
         if load_opt:
-            self.optimizer.load_state_dict(ckpt_dict["optimizer_state_dict"]) if "optimizer_state_dict" in ckpt_dict else 0
+            self.optimizer.load_state_dict(
+                ckpt_dict["optimizer_state_dict"]) if "optimizer_state_dict" in ckpt_dict else 0
         print("loaded checkpoint:", path)
         return ckpt_dict["last_epoch"]
 
@@ -91,7 +92,8 @@ class BaseModel(nn.Module):
                 x_ = x[bs].unsqueeze(0)
                 original_shape = x_.shape
                 x_ = self.flatten(x_)
-                cluster_ids_x, cluster_centers = kmeans(X=x_.cuda(), num_clusters=num_clusters, distance='cosine', device=torch.device('cuda'))
+                cluster_ids_x, cluster_centers = kmeans(X=x_.cuda(), num_clusters=num_clusters, distance='cosine',
+                                                        device=torch.device('cuda'))
                 pred = cluster_ids_x.reshape((original_shape[0], original_shape[2], original_shape[3]))
                 pred = torch.stack([((pred == i) * 1.) for i in torch.unique(pred)], dim=1).to(torch.float)
                 preds.append(pred)
@@ -115,7 +117,7 @@ class BaseModel(nn.Module):
         x = x.view(-1, x.shape[-1])
         return x
 
-    def predict_few_shot(self, si, sm, qi, k=1, device="cpu"):
+    def predict_few_shot(self, si, sm, qi, k=1, threshold=0.9, device="cpu"):
 
         with torch.no_grad():
             bs, _, row, col = qi.shape
@@ -147,14 +149,14 @@ class BaseModel(nn.Module):
             output, _ = torch.unique(Y, sorted=True, return_inverse=True, dim=1)
             output = output[:, 0]
 
-            # ind = torch.where(probs < 0.95)
-            # output[ind] = torch.tensor(0).to(device)
+            ind = torch.where(probs < threshold)
+            output[ind] = torch.tensor(0).to(device)
 
             output = output.reshape((bs, 1, row, col))
 
         return output
 
-    def generate_temp_proxy(self, image, mask, device="cpu"):
+    def generate_temp_proxy(self, image, mask, proxy_cfg, device="cpu"):
         candidates = {}
         with torch.no_grad():
             mask_ = self.flatten(mask).argmax(dim=1)
@@ -169,10 +171,6 @@ class BaseModel(nn.Module):
                 if unq == 0:
                     continue
                 cand = emb[torch.where(mask_ == unq)].cpu()
-                # selection = torch.randint(len(cand), (int(len(cand) * (1/(image.shape[0])**2)),)) if unq == 0 \
-                #     else torch.randint(len(cand), (int(len(cand) * (1/(image.shape[0])**2)),))
-                # selection = selection if len(selection) > 10 else torch.randint(len(cand), 10)
-                # cand = cand[selection]
                 if not unq.item() in candidates:
                     candidates[unq.item()] = cand
                 else:
@@ -183,7 +181,7 @@ class BaseModel(nn.Module):
             candidates[unq_id] = candidates[unq_id].sum(dim=0)
             unq_ids.append(unq_id)
 
-        POP = ProxyOptimization(lr=0.01, max_steps=100, device="cuda")
+        POP = ProxyOptimization(lr=proxy_cfg.lr, max_steps=proxy_cfg.steps, device=device)
         POP.candidate_proxies_dict = candidates
 
         proxies = []
@@ -226,7 +224,8 @@ class BaseModel(nn.Module):
                             candidates[unq.item()] = [cand.sum(dim=0), cand.shape[0]]
                         else:
                             candidates[unq.item()] = [cand.sum(dim=0) + candidates[unq.item()][0],
-                                                      cand.shape[0] + candidates[unq.item()][1]]  # torch.cat([candidates[unq.item()], cand], dim=0)
+                                                      cand.shape[0] + candidates[unq.item()][
+                                                          1]]  # torch.cat([candidates[unq.item()], cand], dim=0)
                 else:
                     print(f"[{i}/{len(dl_ev)}] | {len(candidates)}/{len(dl_ev.dataset.label_map)}")
                     if len(dl_ev.dataset.label_map) == len(candidates):
@@ -237,7 +236,7 @@ class BaseModel(nn.Module):
         POP = ProxyOptimization(lr=proxy_anchor_cfg.lr, max_steps=proxy_anchor_cfg.steps, device="cuda")
 
         for unq_id in candidates:
-            candidates[unq_id] = candidates[unq_id][0]/candidates[unq_id][1]
+            candidates[unq_id] = candidates[unq_id][0] / candidates[unq_id][1]
 
         POP.candidate_proxies_dict = candidates
 

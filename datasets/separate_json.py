@@ -176,23 +176,20 @@ def get_transforms(cfg, eval=True):
                 y_max=cfg.crop_image.y_max,
                 p=cfg.crop_image.status
             ),
-            
+            PadToSquare(),
             A.Resize(cfg.input_size, cfg.input_size),
-
             A.ShiftScaleRotate(
                 shift_limit=cfg.augmentations.ShiftScaleRotate.shift_limit,
                 scale_limit=cfg.augmentations.ShiftScaleRotate.scale_limit,
                 rotate_limit=cfg.augmentations.ShiftScaleRotate.rotate_limit,
                 p=cfg.augmentations.ShiftScaleRotate.probability
             ),
-
             A.RGBShift(
                 r_shift_limit=cfg.augmentations.RGBShift.r_shift_limit,
                 g_shift_limit=cfg.augmentations.RGBShift.g_shift_limit,
                 b_shift_limit=cfg.augmentations.RGBShift.b_shift_limit,
                 p=cfg.augmentations.RGBShift.probability
             ),
-
             A.RandomBrightnessContrast(
                 brightness_limit=cfg.augmentations.RandomBrightnessContrast.brightness_limit,
                 contrast_limit=cfg.augmentations.RandomBrightnessContrast.contrast_limit,
@@ -212,6 +209,7 @@ def get_transforms(cfg, eval=True):
                     y_max=cfg.crop_image.y_max,
                     p=cfg.crop_image.status
                 ),
+                PadToSquare(),
                 A.Resize(cfg.input_size, cfg.input_size),
                 ToTensorV2()
             ]
@@ -221,3 +219,14 @@ def get_transforms(cfg, eval=True):
 
     else:
         return train_transform
+
+class PadToSquare(object):
+    def __call__(self, sample):
+        for key in sample:
+            (a, b) = sample[key].shape
+            if a > b:
+                padding = ((0, 0), (0, a - b))
+            else:
+                padding = ((0, b - a), (0, 0))
+            sample[key] = np.pad(sample[key], padding, mode='constant', constant_values=0.)
+        return sample

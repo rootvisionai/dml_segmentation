@@ -132,18 +132,6 @@ def main(cfg):
         model.eval()
         model.save_checkpoint(path=checkpoint_path, epoch=epoch)
         model.train()
-        
-        # val_loss = evaluate(cfg, dl_ev, model, rng=1000)
-        # print(f"VALIDATION LOSS: {val_loss}")
-        
-        # scheduler.step(np.mean(epoch_loss))
-        # print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.0000005)
-        # if model.optimizer.param_groups[0]["lr"] <= 0.0000005:
-        #     for opt in model.optimizer.param_groups:
-        #         opt['lr'] = (base_lr + opt['lr'])/2
-        #         base_lr = opt['lr']
-
-        # visualize(model, dl_ev, device=cfg.training.device)
 
 if __name__ == "__main__":
     # import config
