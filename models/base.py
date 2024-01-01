@@ -13,11 +13,12 @@ class BaseModel(nn.Module):
     def __init__(self, out_layer=256):
         super(BaseModel, self).__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.base_final_conv = nn.Sequential(
-            nn.ReLU(),
-            nn.BatchNorm2d(out_layer),
-            nn.Conv2d(out_layer, out_layer, kernel_size=7, padding=3, padding_mode="reflect")
-        )
+        self.base_final_conv = nn.Identity()
+        # self.base_final_conv = nn.Sequential(
+        #     nn.ReLU(),
+        #     nn.BatchNorm2d(out_layer),
+        #     nn.Conv2d(out_layer, out_layer, kernel_size=7, padding=3, padding_mode="reflect")
+        # )
 
     def forward(self):
         raise NotImplementedError
@@ -182,7 +183,7 @@ class BaseModel(nn.Module):
             candidates[unq_id] = candidates[unq_id].sum(dim=0)
             unq_ids.append(unq_id)
 
-        POP = ProxyOptimization(lr=0.01, max_steps=40, device="cuda")
+        POP = ProxyOptimization(lr=0.01, max_steps=100, device="cuda")
         POP.candidate_proxies_dict = candidates
 
         proxies = []

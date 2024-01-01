@@ -1,8 +1,8 @@
 model:
-  arch: "DeepLabX" # DeepLabX, DeepLab, UNetResnet, UNet
-  out_layer_size: 256
+  arch: "UNetResnet" # DeepLabX, DeepLab, UNetResnet, UNet
+  out_layer_size: 512
   in_channels: 3
-  backbone: "resnet50" # resnet18, resnet34, resnet50, resnet101
+  backbone: "resnet18" # resnet18, resnet34, resnet50, resnet101
   output_stride: 16
   freeze_bn: False
   freeze_backbone: False
@@ -45,7 +45,7 @@ training:
   load_opt: False
   criterion: 'ProxyAnchor' # CrossEntropyLoss2d | DiceLoss | FocalLoss | CrossEntropyDiceLoss | BinaryCrossEntropyWithLogits2d
   epochs: 200
-  batch_size: 4
+  batch_size: 32
   learning_rate: 0.00001
   device: "cuda"
   num_workers: 4
@@ -60,7 +60,7 @@ inference:
   device: "cuda"
   support_image: "./inference_data/support/emblem_test_q_1.jpg"
   support_annotation: "./inference_data/support/emblem_test_q_1.json"
-  query_image: "./inference_data/query/emblem_1.jpg"
+  query_image: "./inference_data/query/emblem_rain.jpg"
   num_of_neighbors: 4
 
 #-- Guidance for models' configuration --#

@@ -138,16 +138,16 @@ class UNetResnet(BaseModel):
         self.layer4 = model.layer4
 
         # decoder
-        self.conv1 = nn.Conv2d(2048, 192, kernel_size=3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(2048 if int(backbone.split("resnet")[1]) >= 50 else 512, 192, kernel_size=3, stride=1, padding=1)
         self.upconv1 =  nn.ConvTranspose2d(192, 128, 4, 2, 1, bias=False)
 
-        self.conv2 = nn.Conv2d(1152, 128, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(1152 if int(backbone.split("resnet")[1]) >= 50 else 384, 128, kernel_size=3, stride=1, padding=1)
         self.upconv2 = nn.ConvTranspose2d(128, 96, 4, 2, 1, bias=False)
 
-        self.conv3 = nn.Conv2d(608, 96, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(608 if int(backbone.split("resnet")[1]) >= 50 else 224, 96, kernel_size=3, stride=1, padding=1)
         self.upconv3 = nn.ConvTranspose2d(96, 64, 4, 2, 1, bias=False)
 
-        self.conv4 = nn.Conv2d(320, 64, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(320 if int(backbone.split("resnet")[1]) >= 50 else 128, 64, kernel_size=3, stride=1, padding=1)
         self.upconv4 = nn.ConvTranspose2d(64, 48, 4, 2, 1, bias=False)
         
         self.conv5 = nn.Conv2d(48, 48, kernel_size=3, stride=1, padding=1)
