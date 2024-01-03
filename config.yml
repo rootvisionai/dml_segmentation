@@ -6,7 +6,19 @@ model:
   output_stride: 16
   freeze_bn: False
   freeze_backbone: False
-  version: "2"
+  use_smp: True # if this is true, https://github.com/qubvel/segmentation_models.pytorch is used
+  # for defining and loading the models instead of parameters above
+  smp:
+    arch: "Unet"
+    backbone: "resnet50"
+    pretrained_weights: "imagenet"
+    out_layer_size: 512
+    in_channels: 3
+    pooling: 'avg'
+    dropout: 0.2
+    activation: 'relu'
+
+  version: "0"
 
 data:
   folder_structure: "separate_json" # separate, separate_json, unified
