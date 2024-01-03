@@ -6,6 +6,8 @@ import collections
 import shutil
 import sys
 
+import torchvision.utils
+
 import models
 from utils import load_config, evaluate_with_knn
 import losses
@@ -24,7 +26,7 @@ def main(cfg):
     dl_tr = get_dataloader(
         root=os.path.join("datasets", cfg.data.dataset),
         set_type="train",
-        transform=transform_tr,
+        transform=(transform_tr, transform_ev),
         batch_size=cfg.training.batch_size,
         shuffle=True,
         num_workers=cfg.training.num_workers,
@@ -34,7 +36,7 @@ def main(cfg):
     dl_ev = get_dataloader(
         root=os.path.join("datasets", cfg.data.dataset),
         set_type="val",
-        transform=transform_ev,
+        transform=(transform_ev, ),
         batch_size=1,
         shuffle=True,
         num_workers=0,
@@ -47,39 +49,41 @@ def main(cfg):
                                                            factor=0.2,
                                                            patience=2,
                                                            verbose=True,
-                                                           threshold=0.01,
+                                                           threshold=0.1,
                                                            min_lr=0.0000005)
 
-    # if cfg.training.criterion == "ProxyAnchor":
-    #     # proxy anchor loss initialization
-    #     if not os.path.isfile(os.path.join(checkpoint_dir, "proxies.pth")):
-    #         dl_gen = get_dataloader(
-    #             root=os.path.join("datasets", cfg.data.dataset),
-    #             set_type="val",
-    #             transform=transform_ev,
-    #             batch_size=cfg.training.batch_size,
-    #             shuffle=True,
-    #             num_workers=cfg.training.num_workers,
-    #             pin_memory=True,
-    #             drop_last=False
-    #         )
-    #
-    #         model.eval()
-    #         proxies = model.generate_proxies(dl_gen, device=cfg.training.device, proxy_anchor_cfg=cfg.proxy_anchor)
-    #
-    #         torch.save(obj=proxies, f=os.path.join(checkpoint_dir, "proxies.pth"))
-    #     else:
-    #         proxies = torch.load(os.path.join(checkpoint_dir, "proxies.pth"))
-    #     proxies = proxies.to(torch.float16)
-    #
-    # else:
-    #     proxies = None
+    if cfg.training.criterion == "ProxyAnchor":
+        # proxy anchor loss initialization
+        if not os.path.isfile(os.path.join(checkpoint_dir, "proxies.pth")):
+            dl_gen = get_dataloader(
+                root=os.path.join("datasets", cfg.data.dataset),
+                set_type="val",
+                transform=(transform_ev, ),
+                batch_size=cfg.training.batch_size,
+                shuffle=True,
+                num_workers=cfg.training.num_workers,
+                pin_memory=True,
+                drop_last=False
+            )
+
+            model.eval()
+            # model = model.to(torch.float32)
+            proxies = model.generate_proxies(dl_gen, device=cfg.training.device, proxy_cfg=cfg.proxy_anchor)
+
+            torch.save(obj=proxies, f=os.path.join(checkpoint_dir, "proxies.pth"))
+        else:
+            proxies = torch.load(os.path.join(checkpoint_dir, "proxies.pth"))
+        proxies = proxies.to(torch.float32)
+
+    else:
+        proxies = None
 
     if not os.path.isfile(os.path.join(checkpoint_dir, "validation_logs.txt")):
         with open(os.path.join(checkpoint_dir, "validation_logs.txt"), "a+") as fp:
             fp.write("Epoch,Iter,GeneralCounter,MaxPrecision,Precision@1,Precision@2,Precision@4,Precision@8\n")
 
-    model = model.to(torch.float16)
+    # model = model.to(torch.float16)
+
     loss_hist = collections.deque(maxlen=30)
     scheduler_loss = collections.deque(maxlen=500)
     cnt = 0
@@ -89,15 +93,20 @@ def main(cfg):
             for k in range(1):
                 t0 = time.time()
 
-                proxies, classes = model.generate_temp_proxy(
-                    image.to(torch.float16).to(cfg.training.device),
-                    mask.to(torch.int8).to(cfg.training.device),
-                    device=cfg.training.device
-                )
-                mask = mask[:, classes, :, :]
+                # image = torch.cat([image, image_], dim=0)
+                # mask = torch.cat([mask, mask_], dim=0)
+                # torchvision.utils.save_image(image, fp="debug_images.png")
+
+                # proxies, classes = model.generate_temp_proxy(
+                #     image.to(torch.float16).to(cfg.training.device),
+                #     mask.to(torch.int8).to(cfg.training.device),
+                #     cfg.proxy_anchor,
+                #     device=cfg.training.device
+                # )
+                # mask = mask[:, classes, :, :]
 
                 loss = model.training_step(
-                    image.to(torch.float16).to(cfg.training.device),
+                    image.to(torch.float32).to(cfg.training.device),
                     mask.to(torch.int8).to(cfg.training.device),
                     proxies=proxies
                 )
@@ -117,17 +126,17 @@ def main(cfg):
 
             if (cnt+1) % 500 == 0 and cnt != 0:
                 model.save_checkpoint(path=checkpoint_path, epoch=epoch)
-                scheduler_loss.append(loss)
-                scheduler.step(np.mean(scheduler_loss))
-                print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.0000005)
-                if model.optimizer.param_groups[0]["lr"] <= 0.0000005:
-                    for opt in model.optimizer.param_groups:
-                        opt['lr'] = (base_lr + opt['lr']) / 2
-                        base_lr = opt['lr']
 
-            del image, mask; torch.cuda.empty_cache()
-
+            # del image, mask; torch.cuda.empty_cache()
             cnt += 1
+
+        scheduler_loss.append(loss)
+        scheduler.step(np.mean(scheduler_loss))
+        print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.0000005)
+        if model.optimizer.param_groups[0]["lr"] <= 0.0000005:
+            for opt in model.optimizer.param_groups:
+                opt['lr'] = (base_lr + opt['lr']) / 2
+                base_lr = opt['lr']
 
         model.eval()
         model.save_checkpoint(path=checkpoint_path, epoch=epoch)
@@ -140,6 +149,7 @@ if __name__ == "__main__":
     # get model
     model = models.load(cfg)
     model.to(cfg.training.device)
+    model = model.to(torch.float32)
     if cfg.training.criterion != "ProxyAnchor":
         model.define_loss_function(getattr(losses, cfg.training.criterion)())
     else:

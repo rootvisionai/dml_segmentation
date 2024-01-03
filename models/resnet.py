@@ -130,7 +130,7 @@ class ResNet(nn.Module):
     """
     # pylint: disable=unused-variable
     def __init__(self, block, layers, num_classes=1000, dilated=True, multi_grid=False,
-                 deep_base=True, norm_layer=nn.BatchNorm2d):
+                 deep_base=False, norm_layer=nn.BatchNorm2d):
         self.inplanes = 128 if deep_base else 64
         super(ResNet, self).__init__()
         if deep_base:
@@ -261,7 +261,7 @@ def resnet50(pretrained=False, root='./pretrained', **kwargs):
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(load_url(model_urls['resnet50'], model_dir=root))
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet50'], model_dir=root))
     return model
 
 
@@ -273,7 +273,7 @@ def resnet101(pretrained=False, root='./pretrained', **kwargs):
     """
     model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(load_url(model_urls['resnet101'], model_dir=root))
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet101'], model_dir=root))
     return model
 
 
@@ -285,7 +285,7 @@ def resnet152(pretrained=False, root='./pretrained', **kwargs):
     """
     model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(load_url(model_urls['resnet152'], model_dir=root))
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet152'], model_dir=root))
     return model
 
 

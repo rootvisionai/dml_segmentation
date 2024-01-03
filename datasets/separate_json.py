@@ -50,11 +50,13 @@ class DATASET(object):
 
         self.transform = transform
         self.root = root
+        self.set_type = set_type
         self.path_to_sets = os.path.join(root, set_type)
-        self.get_records()
 
         self.label_map = None
         self.get_label_and_color_map()
+
+        self.get_records()
 
         COLORMAP = COLORMAP[0:100]
 
@@ -66,7 +68,18 @@ class DATASET(object):
         images_dir = os.path.join(self.path_to_sets)
         annotations_dir = os.path.join(self.path_to_sets)
         self.annotations = [os.path.join(annotations_dir, elm) for elm in os.listdir(annotations_dir) if ".json" in elm]
+        # self.annotations = self.select_records(first_n_labels=10)
         self.images = [os.path.join(images_dir, elm) for elm in os.listdir(images_dir) if any([k in elm for k in [".jpg", ".jpeg", ".JPG", ".png", ".PNG"]])]
+
+    def select_records(self, first_n_labels=10):
+        selected_labels = {key: self.label_map[key] for i, key in enumerate(self.label_map) if i < first_n_labels}
+        annotations = []
+        for annot_path in self.annotations:
+            with open(annot_path, "r") as fp:
+                annot = json.load(fp)
+                if any([elm["label"] in selected_labels for elm in annot["shapes"]]):
+                    annotations.append(annot_path)
+        return annotations
 
     @staticmethod
     def _convert_to_new_labels(mask):
@@ -124,14 +137,22 @@ class DATASET(object):
 
     @timeit
     def segmentation(self, index):
-        image = cv2.imread(self.images[index])
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        mask = self.load_mask(self.annotations[index])
-        if self.transform is not None:
-            transformed = self.transform(image=image, mask=mask)
-            image = transformed["image"] / 255
-            mask = transformed["mask"]
-            mask = mask.permute(2, 0, 1)
+        img = cv2.imread(self.images[index])
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        msk = self.load_mask(self.annotations[index])
+
+        transformed = self.transform[0](image=img, mask=msk)
+        image = transformed["image"] / 255
+        mask = transformed["mask"]
+        mask = mask.permute(2, 0, 1)
+
+        # if self.set_type == "train":
+        #     transformed_ = self.transform[1](image=img, mask=msk)
+        #     image_ = transformed_["image"] / 255
+        #     mask_ = transformed_["mask"]
+        #     mask_ = mask_.permute(2, 0, 1)
+        #     return image, mask, image_, mask_
+        # else:
         return image, mask
 
     def __getitem__(self, i):
@@ -221,12 +242,20 @@ def get_transforms(cfg, eval=True):
         return train_transform
 
 class PadToSquare(object):
-    def __call__(self, sample):
-        for key in sample:
-            (a, b) = sample[key].shape
-            if a > b:
-                padding = ((0, 0), (0, a - b))
+    @timeit
+    def __call__(self, **kwargs):
+        for key in kwargs:
+            shape = kwargs[key].shape
+            row, column = shape[0], shape[1]
+
+            if row > column:
+                temp = np.zeros((row, row, kwargs[key].shape[-1]), dtype=np.uint8)
+                start = int((row - column)/2)
+                temp[:, start:start+column, :] = kwargs[key]
             else:
-                padding = ((0, b - a), (0, 0))
-            sample[key] = np.pad(sample[key], padding, mode='constant', constant_values=0.)
-        return sample
+                temp = np.zeros((column, column, kwargs[key].shape[-1]), dtype=np.uint8)
+                start = int((column - row)/2)
+                temp[start:start+row, :, :] = kwargs[key]
+
+            kwargs[key] = temp
+        return kwargs

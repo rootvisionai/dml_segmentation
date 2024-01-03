@@ -15,7 +15,7 @@ def binarize(T, nb_classes):
 
 
 def l2_norm(vector):
-    v_norm = vector.norm(dim=-1, p=2)
+    v_norm = vector.norm(dim=-1, p=2).detach()
     vector = vector.divide(v_norm.unsqueeze(1))
     return vector
 

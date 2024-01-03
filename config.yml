@@ -1,17 +1,17 @@
 model:
-  arch: "UNetResnet" # DeepLabX, DeepLab, UNetResnet, UNet
+  arch: "UNet" # DeepLabX, DeepLab, UNetResnet, UNet
   out_layer_size: 512
   in_channels: 3
-  backbone: "resnet18" # resnet18, resnet34, resnet50, resnet101
+  backbone: "resnet50" # resnet18, resnet34, resnet50, resnet101
   output_stride: 16
   freeze_bn: False
   freeze_backbone: False
-  version: "example"
+  version: "2"
 
 data:
   folder_structure: "separate_json" # separate, separate_json, unified
   dataset: "coco"
-  input_size: 240
+  input_size: 128
   nb_classes: 81
 
   crop_image:
@@ -26,26 +26,26 @@ data:
     ShiftScaleRotate:
       shift_limit: 0.2
       scale_limit: 0.2
-      rotate_limit: 30
-      probability: 0.3
+      rotate_limit: 180
+      probability: 1
 
     RGBShift:
-      r_shift_limit: 20
-      g_shift_limit: 20
-      b_shift_limit: 20
-      probability: 0.2
+      r_shift_limit: 50
+      g_shift_limit: 50
+      b_shift_limit: 50
+      probability: 0.3
 
     RandomBrightnessContrast:
       brightness_limit: 0.2
       contrast_limit: 0.1
-      probability: 0.2
+      probability: 0.3
 
 training:
   optimizer: "Lion"
-  load_opt: False
+  load_opt: True
   criterion: 'ProxyAnchor' # CrossEntropyLoss2d | DiceLoss | FocalLoss | CrossEntropyDiceLoss | BinaryCrossEntropyWithLogits2d
   epochs: 200
-  batch_size: 8
+  batch_size: 32
   learning_rate: 0.00001
   device: "cuda"
   num_workers: 4
@@ -54,15 +54,15 @@ proxy_anchor:
   alpha: 32
   margin: 0.8
   lr: 0.01
-  steps: 100
+  steps: 500
 
 inference:
   device: "cuda"
-  support_image: "./inference_data/support/emblem_test_q_1.jpg"
-  support_annotation: "./inference_data/support/emblem_test_q_1.json"
-  query_image: "./inference_data/query/emblem_test_q_2.jpg"
-  num_of_neighbors: 4
-  threshold: 0.9
+  support_image: "./inference_data/support/emblem_rain.jpg"
+  support_annotation: "./inference_data/support/emblem_rain.json"
+  query_image: "./inference_data/query/bmw_fronthood.jpg"
+  num_of_neighbors: 1
+  threshold: 0
 
 #-- Guidance for models' configuration --#
 #  model = UNet(

@@ -17,13 +17,31 @@ COLORMAP = list(permutations(color_numbers, 3))
 shuffle(COLORMAP)
 COLORMAP = torch.tensor(COLORMAP)
 
+class PadToSquare(object):
+    def __call__(self, **kwargs):
+        for key in kwargs:
+            shape = kwargs[key].shape
+            row, column = shape[0], shape[1]
+
+            if row > column:
+                temp = np.zeros((row, row, kwargs[key].shape[-1]), dtype=np.uint8)
+                start = int((row - column)/2)
+                temp[:, start:start+column, :] = kwargs[key]
+            else:
+                temp = np.zeros((column, column, kwargs[key].shape[-1]), dtype=np.uint8)
+                start = int((column - row)/2)
+                temp[start:start+row, :, :] = kwargs[key]
+
+            kwargs[key] = temp
+        return kwargs
+
 class Inference:
     def __init__(self, cfg, checkpoint_path, label_map_path):
         self.cfg = cfg
         self.device = cfg.inference.device
         # get model
         model = models.load(cfg)
-        model = model.to(torch.float16)
+        model = model.to(torch.float32)
         self.model = model.to(self.device)
         self.model.eval()
 
@@ -47,6 +65,7 @@ class Inference:
                     y_max=self.cfg.data.crop_image.y_max,
                     p=self.cfg.data.crop_image.status
                 ),
+                PadToSquare(),
                 A.Resize(self.cfg.data.input_size, self.cfg.data.input_size),
                 ToTensorV2()
             ]
@@ -126,7 +145,7 @@ class Inference:
 
 
 if __name__ == "__main__":
-    checkpoint_dir = "arch[UNetResnet]-out_layer_size[512]-in_channels[3]-backbone[resnet18]-output_stride[16]-freeze_bn[False]-freeze_backbone[False]-version[example]"
+    checkpoint_dir = "arch[UNet]-out_layer_size[512]-in_channels[3]-backbone[resnet50]-output_stride[16]-freeze_bn[False]-freeze_backbone[False]-version[2]"
 
     cfg = load_config(
         "config.yml"
