@@ -9,17 +9,15 @@ from .seg_models_pytorch import SMP
 import sys
 
 def load(cfg):
-    if cfg.use_smp:
-        SMP(
+    if cfg.model.use_smp:
+        model = SMP(
             num_classes=cfg.model.smp.out_layer_size,
             in_channels=cfg.model.smp.in_channels,
             backbone=cfg.model.smp.backbone,
             pretrained=cfg.model.smp.pretrained_weights,
             model_name=cfg.model.smp.arch,
-            pooling=cfg.model.smp.pooling,
-            dropout=cfg.model.smp.dropout,
-            activation=cfg.model.smp.activation
         )
+        return model
     else:
         if cfg.model.arch == "DeepLabX":
             model = DeepLabX(

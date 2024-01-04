@@ -145,11 +145,17 @@ class Inference:
 
 
 if __name__ == "__main__":
-    checkpoint_dir = "arch[UNet]-out_layer_size[512]-in_channels[3]-backbone[resnet50]-output_stride[16]-freeze_bn[False]-freeze_backbone[False]-version[2]"
+    checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_040]-pretrained_weights[imagenet]-out_layer_size[256]-in_channels[3]-version[1]"
 
-    cfg = load_config(
+    support_image = "./inference_data/support/emblem_rain.jpg"
+    support_annotation = "./inference_data/support/emblem_rain.json"
+    query_image = "./inference_data/query/emblem_1.jpg"
+
+    cfg = load_config(os.path.join(
+        "logs",
+        checkpoint_dir,
         "config.yml"
-    )
+    ))
 
     checkpoint_path = os.path.join(
         "logs",
@@ -158,8 +164,8 @@ if __name__ == "__main__":
     )
 
     instance = Inference(cfg, checkpoint_path=checkpoint_path, label_map_path=os.path.join("inference_data", "label_map.json"))
-    instance.define_support(image_path=cfg.inference.support_image, annot_path=cfg.inference.support_annotation)
-    output = instance.process(query_image_path=cfg.inference.query_image)
+    instance.define_support(image_path=support_image, annot_path=support_annotation)
+    output = instance.process(query_image_path=query_image)
     colored = instance.postprocess(output)
     cv2.imwrite(filename="colored_output.jpg", img=colored)
 

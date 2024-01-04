@@ -132,7 +132,9 @@ class DATASET(object):
             cv2.fillPoly(canvas_temp, [pt], (255, 255, 255))
             row_coord, col_coord = np.where( (canvas_temp/255).mean(axis=2) == 1 )
             canvas_binary[row_coord, col_coord, lb_int] = 1
-            
+
+        indices = np.where(canvas_binary.sum(axis=2) == 0)
+        canvas_binary[:, :, 0][indices] = 1
         return canvas_binary
 
     @timeit

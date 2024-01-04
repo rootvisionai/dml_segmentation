@@ -95,7 +95,7 @@ def main(cfg):
 
                 # image = torch.cat([image, image_], dim=0)
                 # mask = torch.cat([mask, mask_], dim=0)
-                # torchvision.utils.save_image(image, fp="debug_images.png")
+                torchvision.utils.save_image(mask.sum(dim=1).unsqueeze(1)/81, fp="debug_masks.png")
 
                 # proxies, classes = model.generate_temp_proxy(
                 #     image.to(torch.float16).to(cfg.training.device),
@@ -116,7 +116,7 @@ def main(cfg):
                       f"| LOSS: {np.mean(loss_hist)} | LR: {model.optimizer.param_groups[0]['lr']} " + \
                       f"| STEP TIME: {t1-t0}")
 
-            if cnt % 2000 == 0 and cnt != 0:
+            if cnt % 1000 == 0 and cnt != 0:
                 model.eval()
                 precisions, max_precision = evaluate_with_knn(cfg, dl_ev, model, exclude_background=True, rng=100)
                 precisions = ["{:.2f}".format(elm) for elm in precisions]
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     model.define_optimizer(cfg)
 
     # define checkpoint
-    checkpoint_dir = vars(cfg.model)
+    checkpoint_dir = vars(cfg.model) if not cfg.model.use_smp else vars(cfg.model.smp)
     checkpoint_dir = [f"{key}[{checkpoint_dir[key]}]" for key in checkpoint_dir]
     checkpoint_dir = "-".join(checkpoint_dir)
 

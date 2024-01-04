@@ -9,21 +9,19 @@ model:
   use_smp: True # if this is true, https://github.com/qubvel/segmentation_models.pytorch is used
   # for defining and loading the models instead of parameters above
   smp:
-    arch: "Unet"
-    backbone: "resnet50"
+    arch: "FPN"
+    backbone: "timm-regnetx_040"
     pretrained_weights: "imagenet"
-    out_layer_size: 512
+    out_layer_size: 256
     in_channels: 3
-    pooling: 'avg'
-    dropout: 0.2
-    activation: 'relu'
+    version: "1"
 
-  version: "0"
+  version: "1"
 
 data:
   folder_structure: "separate_json" # separate, separate_json, unified
   dataset: "coco"
-  input_size: 128
+  input_size: 224
   nb_classes: 81
 
   crop_image:
@@ -39,7 +37,7 @@ data:
       shift_limit: 0.2
       scale_limit: 0.2
       rotate_limit: 180
-      probability: 1
+      probability: 0.5
 
     RGBShift:
       r_shift_limit: 50
@@ -49,7 +47,7 @@ data:
 
     RandomBrightnessContrast:
       brightness_limit: 0.2
-      contrast_limit: 0.1
+      contrast_limit: 0.3
       probability: 0.3
 
 training:
@@ -70,11 +68,8 @@ proxy_anchor:
 
 inference:
   device: "cuda"
-  support_image: "./inference_data/support/emblem_rain.jpg"
-  support_annotation: "./inference_data/support/emblem_rain.json"
-  query_image: "./inference_data/query/bmw_fronthood.jpg"
-  num_of_neighbors: 1
-  threshold: 0
+  num_of_neighbors: 7
+  threshold: 0.99
 
 #-- Guidance for models' configuration --#
 #  model = UNet(

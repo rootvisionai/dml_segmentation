@@ -14,11 +14,14 @@ class BaseModel(nn.Module):
         super(BaseModel, self).__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.base_final_conv = nn.Identity()
-        # self.base_final_conv = nn.Sequential(
-        #     nn.ReLU(),
-        #     nn.BatchNorm2d(out_layer),
-        #     nn.Conv2d(out_layer, out_layer, kernel_size=1, padding=0, padding_mode="reflect")
-        # )
+        self.base_final_conv = nn.Sequential(
+            nn.ReLU(),
+            nn.BatchNorm2d(out_layer),
+            nn.Conv2d(out_layer, out_layer, kernel_size=3, padding=1, padding_mode="reflect"),
+            nn.ReLU(),
+            nn.BatchNorm2d(out_layer),
+            nn.Conv2d(out_layer, out_layer, kernel_size=1, padding=0, padding_mode="reflect")
+        )
 
     def forward(self):
         raise NotImplementedError
@@ -146,8 +149,8 @@ class BaseModel(nn.Module):
             Y = sm[topk[1][:, 1:]]
             Y = Y.view(-1, Y.shape[-1])
 
-            output, _ = torch.unique(Y, sorted=True, return_inverse=True, dim=1)
-            output = output[:, 0]
+            output = torch.unique(Y, sorted=True, dim=1)
+            output = output[:, -1]
 
             ind = torch.where(probs < threshold)
             output[ind] = torch.tensor(0).to(device)

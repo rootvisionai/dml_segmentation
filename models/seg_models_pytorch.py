@@ -12,26 +12,18 @@ class SMP(BaseModel):
             backbone='resnet50',
             pretrained=True,
             model_name='Unet',
-            pooling='avg',
-            dropout=0.2,
-            activation='relu',
             **_
     ):
         super(SMP, self).__init__(out_layer=num_classes)
 
-        aux_params = dict(
-            pooling=pooling,  # one of 'avg', 'max'
-            dropout=dropout,  # dropout ratio, default is None
-            activation=activation,  # activation function, default is None
-            classes=num_classes,  # define number of output labels
-        )
-        self.model = getattr(smp, model_name)(
-            backbone=backbone,
+        self.model = getattr(smp, "create_model")(
+            arch=model_name,
+            encoder_name=backbone,
             in_channels=in_channels,
-            aux_params=aux_params,
-            pretrained=pretrained
+            classes=num_classes,
+            encoder_weights=pretrained
         )
 
     def forward(self, x):
-        mask, _ = self.model(x)
+        mask = self.model(x)
         return mask
