@@ -74,7 +74,7 @@ def main(cfg):
         else:
             proxies = torch.load(os.path.join(checkpoint_dir, "proxies.pth"))
         proxies = proxies.to(torch.float32)
-
+        torch.cuda.empty_cache()
     else:
         proxies = None
 
@@ -95,7 +95,7 @@ def main(cfg):
 
                 # image = torch.cat([image, image_], dim=0)
                 # mask = torch.cat([mask, mask_], dim=0)
-                torchvision.utils.save_image(mask.sum(dim=1).unsqueeze(1)/81, fp="debug_masks.png")
+                # torchvision.utils.save_image(mask.sum(dim=1).unsqueeze(1)/81, fp="debug_masks.png")
 
                 # proxies, classes = model.generate_temp_proxy(
                 #     image.to(torch.float16).to(cfg.training.device),
@@ -116,18 +116,19 @@ def main(cfg):
                       f"| LOSS: {np.mean(loss_hist)} | LR: {model.optimizer.param_groups[0]['lr']} " + \
                       f"| STEP TIME: {t1-t0}")
 
+            if cnt % 500 == 0 and cnt != 0:
+                model.save_checkpoint(path=checkpoint_path, epoch=epoch)
+
             if cnt % 1000 == 0 and cnt != 0:
+                del image, mask; torch.cuda.empty_cache()
                 model.eval()
                 precisions, max_precision = evaluate_with_knn(cfg, dl_ev, model, exclude_background=True, rng=100)
                 precisions = ["{:.2f}".format(elm) for elm in precisions]
                 with open(os.path.join(checkpoint_dir, "validation_logs.txt"), "a+") as fp:
                     fp.write(f"{epoch},{i},{cnt},{max_precision},{','.join(precisions)}\n")
                 model.train()
+                torch.cuda.empty_cache()
 
-            if (cnt+1) % 500 == 0 and cnt != 0:
-                model.save_checkpoint(path=checkpoint_path, epoch=epoch)
-
-            # del image, mask; torch.cuda.empty_cache()
             cnt += 1
 
         scheduler_loss.append(loss)

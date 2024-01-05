@@ -35,7 +35,7 @@ class Compile:
         dummy = torch.rand(1, 3, cfg.data.input_size, cfg.data.input_size).to(self.device)
         dummy = dummy.half() if self.half_precision else dummy
 
-        self.module = torch.jit.trace(self.model.forward, dummy)
+        self.module = torch.jit.trace(self.model.forward_all, dummy)
 
     def save(self):
         torch.jit.save(self.module, './packaged.pth')
@@ -53,7 +53,7 @@ class Compile:
             out_jl = self.loaded_module(copy.deepcopy(dummy)).detach()
         t1 = time.time()
         with torch.no_grad():
-            out_nj = self.model.forward(dummy).detach()
+            out_nj = self.model.forward_all(dummy).detach()
         t2 = time.time()
         print(
             f"Out size: {out_nj.size()}\n"

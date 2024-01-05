@@ -145,7 +145,7 @@ class Inference:
 
 
 if __name__ == "__main__":
-    checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_040]-pretrained_weights[imagenet]-out_layer_size[256]-in_channels[3]-version[1]"
+    checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_016]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[1]"
 
     support_image = "./inference_data/support/emblem_rain.jpg"
     support_annotation = "./inference_data/support/emblem_rain.json"
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     checkpoint_path = os.path.join(
         "logs",
         f"{checkpoint_dir}",
-        "ckpt.pth"
+        "ckpt_0.pth"
     )
 
     instance = Inference(cfg, checkpoint_path=checkpoint_path, label_map_path=os.path.join("inference_data", "label_map.json"))

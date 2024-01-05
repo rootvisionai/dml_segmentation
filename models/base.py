@@ -70,13 +70,10 @@ class BaseModel(nn.Module):
         self.optimizer.step()
         return loss.item()
 
-    def infer(self, x):
-        with torch.no_grad():
-            x = self.forward(x)
-            x = self.base_final_conv(x)
-            x = torch.nn.functional.softmax(x, dim=1)
-            x_ = x.argmax(1).unsqueeze(1)
-        return x_.to(torch.float32), x
+    def forward_all(self, x):
+        x = self.forward(x)
+        x = self.base_final_conv(x)
+        return x
 
     def infer_sigmoid(self, x):
         with torch.no_grad():
@@ -222,6 +219,7 @@ class BaseModel(nn.Module):
 
                     for unq in unqs:
                         cand = emb[torch.where(mask_ == unq)].cpu()
+                        cand = cand[torch.randint(low=0, high=cand.shape[0]-1, size=(int(cand.shape[0]*0.25), ))] if cand.shape[0] > 100 else cand
                         if not unq.item() in candidates:
                             candidates[unq.item()] = cand
                         else:
