@@ -149,7 +149,7 @@ if __name__ == "__main__":
 
     support_image = "./inference_data/support/emblem_rain.jpg"
     support_annotation = "./inference_data/support/emblem_rain.json"
-    query_image = "./inference_data/query/emblem_1.jpg"
+    query_image = "./inference_data/query/old_emblem.jpg"
 
     cfg = load_config(os.path.join(
         "logs",
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     checkpoint_path = os.path.join(
         "logs",
         f"{checkpoint_dir}",
-        "ckpt_0.pth"
+        "ckpt.pth"
     )
 
     instance = Inference(cfg, checkpoint_path=checkpoint_path, label_map_path=os.path.join("inference_data", "label_map.json"))

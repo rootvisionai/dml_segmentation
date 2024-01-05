@@ -68,7 +68,7 @@ proxy_anchor:
 
 inference:
   device: "cuda"
-  num_of_neighbors: 4
+  num_of_neighbors: 1
   threshold: 0.0
 
 #-- Guidance for models' configuration --#

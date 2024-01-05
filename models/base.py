@@ -209,8 +209,9 @@ class BaseModel(nn.Module):
                 mask_ = self.flatten(mask).argmax(dim=1)
                 unqs = torch.unique(mask_)
 
-                condition_list = [not unq.item() in candidates for unq in unqs]
-                if any(condition_list):
+                # condition = any([not unq.item() in candidates for unq in unqs])
+                condition = True
+                if condition:
                     print(f"Generating candidate [{i}/{len(dl_ev)}] for proxies...")
                     emb = self.forward(image)
                     emb = self.base_final_conv(emb)
@@ -224,10 +225,12 @@ class BaseModel(nn.Module):
                             candidates[unq.item()] = cand
                         else:
                             candidates[unq.item()] = torch.cat([candidates[unq.item()], cand])
+                        candidates[unq.item()] = candidates[unq.item()][torch.randint(low=0, high=cand.shape[0]-1, size=(1000, ))] if cand.shape[0] > 1000 else cand
+                        print(f"{unq.item()} -> {candidates[unq.item()].shape[0]}")
                 else:
                     print(f"[{i}/{len(dl_ev)}] | {len(candidates)}/{len(dl_ev.dataset.label_map)}")
                     if len(dl_ev.dataset.label_map) == len(candidates):
-                        break
+                        pass
 
         print("Candidates are generated.")
 
