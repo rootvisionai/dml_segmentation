@@ -27,12 +27,18 @@ class PadToSquare(object):
                 temp = np.zeros((row, row, kwargs[key].shape[-1]), dtype=np.uint8)
                 start = int((row - column)/2)
                 temp[:, start:start+column, :] = kwargs[key]
+
+                padding = {"y": start, "x": 0}
             else:
                 temp = np.zeros((column, column, kwargs[key].shape[-1]), dtype=np.uint8)
                 start = int((column - row)/2)
                 temp[start:start+row, :, :] = kwargs[key]
 
+                padding = {"y": 0, "x": start}
+
             kwargs[key] = temp
+
+        kwargs["padding"] = padding
         return kwargs
 
 class Inference:
@@ -45,7 +51,7 @@ class Inference:
         self.model = model.to(self.device)
         self.model.eval()
 
-        last_epoch = self.model.load_checkpoint(checkpoint_path, device=cfg.training.device, load_opt=False)
+        last_epoch = self.model.load_checkpoint(checkpoint_path, device=self.device, load_opt=False)
 
         print(
             f"Loaded model: {checkpoint_path}\n",
@@ -103,30 +109,48 @@ class Inference:
         mask = self.convert_points_and_labels_to_mask(points_labels, image_height, image_width)
         return mask
 
-    def load_inputs(self, image_path, annotation_path=None):
-        image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        self.original_size = image.shape[0:2][::-1]
+    def load_supports(self, image_paths, mask_paths):
 
-        if annotation_path:
-            mask = self.load_mask(annotation_path)
+        images = []
+        masks = []
+        for image_path, mask_path in zip(image_paths, mask_paths):
+            image = cv2.imread(image_path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            mask = self.load_mask(mask_path)
             transformed = self.transform(image=image, mask=mask)
             image = transformed["image"] / 255
             mask = transformed["mask"]
             mask = mask.permute(2, 0, 1)
-            return image.unsqueeze(0), mask.unsqueeze(0)
 
-        else:
-            transformed = self.transform(image=image)
-            image = transformed["image"] / 255
-            return image.unsqueeze(0)
+            images.append(image)
+            masks.append(mask)
 
-    def define_support(self, image_path, annot_path):
-        self.support_image, self.support_mask = self.load_inputs(image_path=image_path, annotation_path=annot_path)
+        self.support_image = torch.stack(images, dim=0)
+        self.support_mask = torch.stack(masks, dim=0)
+
+    def load_query(self, image_path):
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.original_size = image.shape[0:2][::-1]
+
+        transformed = self.transform(image=image)
+        self.padding = transformed["padding"]
+
+        self.original_size = (max(self.original_size), max(self.original_size))
+
+        image = transformed["image"] / 255
+        return image.unsqueeze(0)
 
     def process(self, query_image_path):
-        query_image = self.load_inputs(query_image_path, annotation_path=None)
-        out = self.model.predict_few_shot(self.support_image, self.support_mask, query_image, k=self.cfg.inference.num_of_neighbors, device="cuda")
+        query_image = self.load_query(query_image_path)
+        out = self.model.predict_few_shot(
+            self.support_image,
+            self.support_mask,
+            query_image,
+            k=self.cfg.inference.num_of_neighbors,
+            device="cuda"
+        )
         return out
 
     def postprocess(self, inference_output):
@@ -135,6 +159,10 @@ class Inference:
 
         try:
             colored_image = cv2.resize(colored_image, self.original_size)
+            colored_image = colored_image[
+                            self.padding["x"]:colored_image.shape[0]-self.padding["x"],
+                            self.padding["y"]:colored_image.shape[0]-self.padding["y"],
+                            :]
         except cv2.error as e:
             print("Error resizing image:", e)
             print("Image shape:", colored_image.shape)
@@ -147,9 +175,9 @@ class Inference:
 if __name__ == "__main__":
     checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_016]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[1]"
 
-    support_image = "./inference_data/support/emblem_rain.jpg"
-    support_annotation = "./inference_data/support/emblem_rain.json"
-    query_image = "./inference_data/query/old_emblem.jpg"
+    support_image = ["./inference_data/support/emblem_rain.jpg"]
+    support_annotation = ["./inference_data/support/emblem_rain.json"]
+    query_image = "./inference_data/query/emblem_test_q_2.jpg"
 
     cfg = load_config(os.path.join(
         "logs",
@@ -164,8 +192,7 @@ if __name__ == "__main__":
     )
 
     instance = Inference(cfg, checkpoint_path=checkpoint_path, label_map_path=os.path.join("inference_data", "label_map.json"))
-    instance.define_support(image_path=support_image, annot_path=support_annotation)
+    instance.load_supports(image_paths=support_image, mask_paths=support_annotation)
     output = instance.process(query_image_path=query_image)
     colored = instance.postprocess(output)
     cv2.imwrite(filename="colored_output.jpg", img=colored)
-
