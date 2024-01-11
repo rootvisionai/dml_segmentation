@@ -4,6 +4,8 @@ import random
 import torch.nn as nn
 import numpy as np
 import torch
+import torchvision.utils
+
 from .lion import Lion
 from proxy_anchor_loss import ProxyOptimization
 from kmeans_pytorch import kmeans
@@ -57,6 +59,9 @@ class BaseModel(nn.Module):
         x = self.forward(x)
         x = self.base_final_conv(x)
 
+        # torchvision.utils.save_image(tensor=m.argmax(dim=1).unsqueeze(1)/81, fp="./debug_mask.png")
+        # torchvision.utils.save_image(tensor=m[:, 0, :, :].unsqueeze(1) / m.max(), fp="./debug_mask.png")
+
         if isinstance(proxies, torch.Tensor):
             x = self.flatten(x)
             m = self.flatten(m)
@@ -66,7 +71,7 @@ class BaseModel(nn.Module):
 
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.parameters(), 0.5)
+        # torch.nn.utils.clip_grad_norm_(self.parameters(), 0.5)
         self.optimizer.step()
         return loss.item()
 
@@ -220,12 +225,12 @@ class BaseModel(nn.Module):
 
                     for unq in unqs:
                         cand = emb[torch.where(mask_ == unq)].cpu()
-                        cand = cand[torch.randint(low=0, high=cand.shape[0]-1, size=(int(cand.shape[0]*0.25), ))] if cand.shape[0] > 100 else cand
+                        cand = cand[torch.randint(low=0, high=cand.shape[0]-1, size=(int(cand.shape[0]*0.25), ))] if cand.shape[0] > 1000 else cand
                         if not unq.item() in candidates:
                             candidates[unq.item()] = cand
                         else:
                             candidates[unq.item()] = torch.cat([candidates[unq.item()], cand])
-                        candidates[unq.item()] = candidates[unq.item()][torch.randint(low=0, high=cand.shape[0]-1, size=(1000, ))] if cand.shape[0] > 1000 else cand
+                        candidates[unq.item()] = candidates[unq.item()][torch.randint(low=0, high=cand.shape[0]-1, size=(5000, ))] if cand.shape[0] > 5000 else cand
                         print(f"{unq.item()} -> {candidates[unq.item()].shape[0]}")
                 else:
                     print(f"[{i}/{len(dl_ev)}] | {len(candidates)}/{len(dl_ev.dataset.label_map)}")

@@ -34,8 +34,8 @@ data:
   augmentations:
   
     ShiftScaleRotate:
-      shift_limit: 0.2
-      scale_limit: 0.2
+      shift_limit: 0.4
+      scale_limit: 0.4
       rotate_limit: 180
       probability: 0.5
 
@@ -46,16 +46,16 @@ data:
       probability: 0.3
 
     RandomBrightnessContrast:
-      brightness_limit: 0.2
+      brightness_limit: 0.3
       contrast_limit: 0.3
       probability: 0.3
 
 training:
   optimizer: "Lion"
-  load_opt: True
+  load_opt: False
   criterion: 'ProxyAnchor' # CrossEntropyLoss2d | DiceLoss | FocalLoss | CrossEntropyDiceLoss | BinaryCrossEntropyWithLogits2d
   epochs: 200
-  batch_size: 8
+  batch_size: 16
   learning_rate: 0.00001
   device: "cuda"
   num_workers: 4

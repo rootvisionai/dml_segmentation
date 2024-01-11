@@ -46,11 +46,11 @@ def main(cfg):
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(model.optimizer,
                                                            mode='min',
-                                                           factor=0.2,
+                                                           factor=0.1,
                                                            patience=2,
                                                            verbose=True,
                                                            threshold=0.1,
-                                                           min_lr=0.0000005)
+                                                           min_lr=0.0000001)
 
     if cfg.training.criterion == "ProxyAnchor":
         # proxy anchor loss initialization
@@ -129,12 +129,20 @@ def main(cfg):
                 model.train()
                 torch.cuda.empty_cache()
 
+                scheduler_loss.append(loss)
+                scheduler.step(np.mean(scheduler_loss))
+                print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.000001)
+                if model.optimizer.param_groups[0]["lr"] <= 0.000001:
+                    for opt in model.optimizer.param_groups:
+                        opt['lr'] = (base_lr + opt['lr']) / 2
+                        base_lr = opt['lr']
+
             cnt += 1
 
         scheduler_loss.append(loss)
         scheduler.step(np.mean(scheduler_loss))
-        print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.0000005)
-        if model.optimizer.param_groups[0]["lr"] <= 0.0000005:
+        print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.000001)
+        if model.optimizer.param_groups[0]["lr"] <= 0.000001:
             for opt in model.optimizer.param_groups:
                 opt['lr'] = (base_lr + opt['lr']) / 2
                 base_lr = opt['lr']
