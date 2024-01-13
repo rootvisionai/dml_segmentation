@@ -1,9 +1,9 @@
 import logging
-import random
 
 import torch.nn as nn
 import numpy as np
 import torch
+
 from .lion import Lion
 from proxy_anchor_loss import ProxyOptimization
 from kmeans_pytorch import kmeans
@@ -13,14 +13,14 @@ class BaseModel(nn.Module):
     def __init__(self, out_layer=256):
         super(BaseModel, self).__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.base_final_conv = nn.Identity()
+        # self.base_final_conv = nn.Identity()
         self.base_final_conv = nn.Sequential(
             nn.ReLU(),
             nn.BatchNorm2d(out_layer),
             nn.Conv2d(out_layer, out_layer, kernel_size=3, padding=1, padding_mode="reflect"),
             nn.ReLU(),
             nn.BatchNorm2d(out_layer),
-            nn.Conv2d(out_layer, out_layer, kernel_size=1, padding=0, padding_mode="reflect")
+            nn.Conv2d(out_layer, out_layer, kernel_size=1, padding=0, padding_mode="reflect"),
         )
 
     def forward(self):
@@ -117,7 +117,17 @@ class BaseModel(nn.Module):
         x = x.view(-1, x.shape[-1])
         return x
 
-    def predict_few_shot(self, si, sm, qi, k=1, threshold=0.9, device="cpu"):
+    def unique_elements_single_row(self, t):
+
+        # Find elements that are unique to a single row
+        unqs_cnts = []
+        for row in t:
+            unqs, cnts = torch.unique(row, return_counts=True)
+            unqs_cnts.append([unqs[0], cnts[0]/len(row) if unqs[0] != 0 else torch.tensor(0)])
+
+        return torch.tensor(unqs_cnts).float().to(t.device)
+
+    def predict_few_shot(self, si, sm, qi, k=1, threshold=0.9, device="cpu", return_probs=False):
 
         with torch.no_grad():
             bs, _, row, col = qi.shape
@@ -142,19 +152,26 @@ class BaseModel(nn.Module):
             sm = self.flatten(sm.to(torch.int8).to(device)).argmax(dim=1)
 
             topk = cos_sim.topk(1 + k)
-            probs = topk[0][:, 1:].mean(dim=1)
             Y = sm[topk[1][:, 1:]]
             Y = Y.view(-1, Y.shape[-1])
 
-            output = torch.unique(Y, sorted=True, dim=1)
-            output = output[:, -1]
-
-            ind = torch.where(probs < threshold)
-            output[ind] = torch.tensor(0).to(device)
+            if return_probs:
+                unqs_cnts = self.unique_elements_single_row(Y)
+                output = unqs_cnts[:, 0]
+                probs = unqs_cnts[:, 1]
+                ind = torch.where(probs < threshold)
+                output[ind] = torch.tensor(0.).to(device)
+                probs = probs.reshape((bs, 1, row, col))
+            else:
+                output = torch.unique(Y, sorted=True, dim=1)
+                output = output[:, -1]
 
             output = output.reshape((bs, 1, row, col))
 
-        return output
+        if return_probs:
+            return output, probs
+        else:
+            return output
 
     def generate_temp_proxy(self, image, mask, proxy_cfg, device="cpu"):
         candidates = {}
@@ -220,12 +237,12 @@ class BaseModel(nn.Module):
 
                     for unq in unqs:
                         cand = emb[torch.where(mask_ == unq)].cpu()
-                        cand = cand[torch.randint(low=0, high=cand.shape[0]-1, size=(int(cand.shape[0]*0.25), ))] if cand.shape[0] > 100 else cand
+                        cand = cand[torch.randint(low=0, high=cand.shape[0]-1, size=(1000, ))] if cand.shape[0] > 1000 else cand
                         if not unq.item() in candidates:
                             candidates[unq.item()] = cand
                         else:
                             candidates[unq.item()] = torch.cat([candidates[unq.item()], cand])
-                        candidates[unq.item()] = candidates[unq.item()][torch.randint(low=0, high=cand.shape[0]-1, size=(1000, ))] if cand.shape[0] > 1000 else cand
+                        candidates[unq.item()] = candidates[unq.item()][torch.randint(low=0, high=cand.shape[0]-1, size=(5000, ))] if cand.shape[0] > 5000 else cand
                         print(f"{unq.item()} -> {candidates[unq.item()].shape[0]}")
                 else:
                     print(f"[{i}/{len(dl_ev)}] | {len(candidates)}/{len(dl_ev.dataset.label_map)}")

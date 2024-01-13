@@ -1,28 +1,16 @@
 model:
-  arch: "UNet" # DeepLabX, DeepLab, UNetResnet, UNet
+  arch: "FPN"
+  backbone: "timm-regnetx_032"
+  pretrained_weights: "imagenet"
   out_layer_size: 512
   in_channels: 3
-  backbone: "resnet50" # resnet18, resnet34, resnet50, resnet101
-  output_stride: 16
-  freeze_bn: False
-  freeze_backbone: False
-  use_smp: True # if this is true, https://github.com/qubvel/segmentation_models.pytorch is used
-  # for defining and loading the models instead of parameters above
-  smp:
-    arch: "FPN"
-    backbone: "timm-regnetx_016"
-    pretrained_weights: "imagenet"
-    out_layer_size: 512
-    in_channels: 3
-    version: "1"
-
-  version: "1"
+  version: "2"
 
 data:
   folder_structure: "separate_json" # separate, separate_json, unified
-  dataset: "coco"
+  dataset: "bmw_emblem"
   input_size: 224
-  nb_classes: 81
+  nb_classes: 2
 
   crop_image:
       status: 0
@@ -34,8 +22,8 @@ data:
   augmentations:
   
     ShiftScaleRotate:
-      shift_limit: 0.2
-      scale_limit: 0.2
+      shift_limit: 0.4
+      scale_limit: 0.4
       rotate_limit: 180
       probability: 0.5
 
@@ -46,19 +34,23 @@ data:
       probability: 0.3
 
     RandomBrightnessContrast:
-      brightness_limit: 0.2
+      brightness_limit: 0.3
       contrast_limit: 0.3
       probability: 0.3
 
 training:
   optimizer: "Lion"
-  load_opt: True
+  load_opt: False
   criterion: 'ProxyAnchor' # CrossEntropyLoss2d | DiceLoss | FocalLoss | CrossEntropyDiceLoss | BinaryCrossEntropyWithLogits2d
-  epochs: 200
-  batch_size: 8
+  epochs: 25
+  batch_size: 16
   learning_rate: 0.00001
   device: "cuda"
   num_workers: 4
+
+finetune:
+  epochs: 100
+  learning_rate: 0.0001
 
 proxy_anchor:
   alpha: 32
@@ -68,7 +60,7 @@ proxy_anchor:
 
 inference:
   device: "cuda"
-  num_of_neighbors: 1
+  num_of_neighbors: 2
   threshold: 0.0
 
 #-- Guidance for models' configuration --#

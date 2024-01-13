@@ -68,7 +68,6 @@ class DATASET(object):
         images_dir = os.path.join(self.path_to_sets)
         annotations_dir = os.path.join(self.path_to_sets)
         self.annotations = [os.path.join(annotations_dir, elm) for elm in os.listdir(annotations_dir) if ".json" in elm]
-        # self.annotations = self.select_records(first_n_labels=10)
         self.images = [os.path.join(images_dir, elm) for elm in os.listdir(images_dir) if any([k in elm for k in [".jpg", ".jpeg", ".JPG", ".png", ".PNG"]])]
 
     def select_records(self, first_n_labels=10):

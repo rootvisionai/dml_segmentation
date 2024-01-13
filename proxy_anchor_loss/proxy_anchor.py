@@ -15,7 +15,7 @@ def binarize(T, nb_classes):
 
 
 def l2_norm(vector):
-    v_norm = vector.norm(dim=-1, p=2).detach()
+    v_norm = vector.norm(dim=-1, p=2)
     vector = vector.divide(v_norm.unsqueeze(1))
     return vector
 
@@ -41,7 +41,8 @@ class ProxyAnchorLoss(torch.nn.Module):
         with_pos_proxies = torch.nonzero(P_one_hot.sum(dim=0) != 0).squeeze(dim=1)
         num_valid_proxies = len(with_pos_proxies)
 
-        # P_one_hot[:, 0] = 0
+        # P_one_hot_np = P_one_hot.detach().cpu().numpy()
+        P_one_hot[:, 0] = 0
         P_sim_sum = torch.where(P_one_hot == 1, pos_exp, torch.zeros_like(pos_exp)).sum(dim=0)
         N_sim_sum = torch.where(N_one_hot == 1, neg_exp, torch.zeros_like(neg_exp)).sum(dim=0)
 

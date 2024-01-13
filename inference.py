@@ -144,40 +144,48 @@ class Inference:
 
     def process(self, query_image_path):
         query_image = self.load_query(query_image_path)
-        out = self.model.predict_few_shot(
+        out, probs = self.model.predict_few_shot(
             self.support_image,
             self.support_mask,
             query_image,
             k=self.cfg.inference.num_of_neighbors,
-            device="cuda"
+            device="cuda",
+            return_probs=True
         )
-        return out
+        return out, probs
 
-    def postprocess(self, inference_output):
+    def postprocess(self, inference_output, probs):
         inference_output = inference_output.squeeze(1)
-        colored_image = COLORMAP.to(self.device)[inference_output][0].to(torch.uint8).cpu().numpy()
+        colored_image = COLORMAP.to(self.device)[inference_output.long()][0].to(torch.uint8).cpu().numpy()
+        probs = (probs * 255).squeeze(1).permute(1, 2, 0).to(torch.uint8).cpu().numpy()
 
         try:
             colored_image = cv2.resize(colored_image, self.original_size)
             colored_image = colored_image[
                             self.padding["x"]:colored_image.shape[0]-self.padding["x"],
-                            self.padding["y"]:colored_image.shape[0]-self.padding["y"],
+                            self.padding["y"]:colored_image.shape[1]-self.padding["y"],
                             :]
+
+            probs = cv2.resize(probs, self.original_size)
+            probs = probs[
+                    self.padding["x"]:probs.shape[0]-self.padding["x"],
+                    self.padding["y"]:probs.shape[1]-self.padding["y"]
+                    ]
+
         except cv2.error as e:
             print("Error resizing image:", e)
             print("Image shape:", colored_image.shape)
             print("Target size:", self.original_size)
             raise
 
-        return colored_image
+        return colored_image, probs
 
 
 if __name__ == "__main__":
-    checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_016]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[1]"
-
-    support_image = ["./inference_data/support/emblem_rain.jpg"]
-    support_annotation = ["./inference_data/support/emblem_rain.json"]
-    query_image = "./inference_data/query/emblem_test_q_2.jpg"
+    checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_032]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[2]"
+    support_image = ["./inference_data/support/800px-2010_brown_BMW_530i_rear.jpg"]
+    support_annotation = ["./inference_data/support/800px-2010_brown_BMW_530i_rear.json"]
+    query_image = "./inference_data/query/emblem_1.jpg"
 
     cfg = load_config(os.path.join(
         "logs",
@@ -188,11 +196,12 @@ if __name__ == "__main__":
     checkpoint_path = os.path.join(
         "logs",
         f"{checkpoint_dir}",
-        "ckpt.pth"
+        "ckpt_finetuned.pth"
     )
 
     instance = Inference(cfg, checkpoint_path=checkpoint_path, label_map_path=os.path.join("inference_data", "label_map.json"))
     instance.load_supports(image_paths=support_image, mask_paths=support_annotation)
-    output = instance.process(query_image_path=query_image)
-    colored = instance.postprocess(output)
+    output, probs = instance.process(query_image_path=query_image)
+    colored, probs = instance.postprocess(output, probs)
     cv2.imwrite(filename="colored_output.jpg", img=colored)
+    cv2.imwrite(filename="probs.jpg", img=probs)
