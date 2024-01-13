@@ -6,8 +6,6 @@ import collections
 import shutil
 import sys
 
-import torchvision.utils
-
 import models
 from utils import load_config, evaluate_with_knn
 import losses
@@ -31,7 +29,7 @@ def main(cfg):
         shuffle=True,
         num_workers=cfg.training.num_workers,
         pin_memory=True,
-        drop_last=True
+        drop_last=False
     )
     dl_ev = get_dataloader(
         root=os.path.join("datasets", cfg.data.dataset),
@@ -82,8 +80,6 @@ def main(cfg):
         with open(os.path.join(checkpoint_dir, "validation_logs.txt"), "a+") as fp:
             fp.write("Epoch,Iter,GeneralCounter,MaxPrecision,Precision@1,Precision@2,Precision@4,Precision@8\n")
 
-    # model = model.to(torch.float16)
-
     loss_hist = collections.deque(maxlen=30)
     scheduler_loss = collections.deque(maxlen=500)
     cnt = 0
@@ -93,10 +89,12 @@ def main(cfg):
             for k in range(1):
                 t0 = time.time()
 
+                # to duplicate the same images with augmentated versions
                 # image = torch.cat([image, image_], dim=0)
                 # mask = torch.cat([mask, mask_], dim=0)
                 # torchvision.utils.save_image(mask.sum(dim=1).unsqueeze(1)/81, fp="debug_masks.png")
 
+                # this is for temporary proxies, is not used anymore.
                 # proxies, classes = model.generate_temp_proxy(
                 #     image.to(torch.float16).to(cfg.training.device),
                 #     mask.to(torch.int8).to(cfg.training.device),
@@ -116,8 +114,16 @@ def main(cfg):
                       f"| LOSS: {np.mean(loss_hist)} | LR: {model.optimizer.param_groups[0]['lr']} " + \
                       f"| STEP TIME: {t1-t0}")
 
-            if cnt % 500 == 0 and cnt != 0:
+            if cnt % 1000 == 0 and cnt != 0:
                 model.save_checkpoint(path=checkpoint_path, epoch=epoch)
+
+                scheduler_loss.append(loss)
+                scheduler.step(np.mean(scheduler_loss))
+                print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.000001)
+                if model.optimizer.param_groups[0]["lr"] <= 0.000001:
+                    for opt in model.optimizer.param_groups:
+                        opt['lr'] = (base_lr + opt['lr']) / 2
+                        base_lr = opt['lr']
 
             if cnt % 1000 == 0 and cnt != 0:
                 del image, mask; torch.cuda.empty_cache()
@@ -128,14 +134,6 @@ def main(cfg):
                     fp.write(f"{epoch},{i},{cnt},{max_precision},{','.join(precisions)}\n")
                 model.train()
                 torch.cuda.empty_cache()
-
-                scheduler_loss.append(loss)
-                scheduler.step(np.mean(scheduler_loss))
-                print(model.optimizer.param_groups[0]["lr"], "<=", model.optimizer.param_groups[0]["lr"] <= 0.000001)
-                if model.optimizer.param_groups[0]["lr"] <= 0.000001:
-                    for opt in model.optimizer.param_groups:
-                        opt['lr'] = (base_lr + opt['lr']) / 2
-                        base_lr = opt['lr']
 
             cnt += 1
 
@@ -170,7 +168,7 @@ if __name__ == "__main__":
     model.define_optimizer(cfg)
 
     # define checkpoint
-    checkpoint_dir = vars(cfg.model) if not cfg.model.use_smp else vars(cfg.model.smp)
+    checkpoint_dir = vars(cfg.model)
     checkpoint_dir = [f"{key}[{checkpoint_dir[key]}]" for key in checkpoint_dir]
     checkpoint_dir = "-".join(checkpoint_dir)
 
@@ -195,7 +193,8 @@ if __name__ == "__main__":
         raise NotImplementedError(f"cfg.data.folder_structure: {cfg.data.folder_structure} doesn't exist. Use one of separate, unified.")
 
     # try except keyboardinterrupt lets us save the model just before the program stops
-    # so that we do not lose the model weights in the current epoch.
+    # so that we do not lose the model weights in the current epoch. But unfortunately,
+    # something is wrong with saving, so interrupted checkpoints are not useful
     try:
         main(cfg)
     except KeyboardInterrupt:
