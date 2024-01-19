@@ -185,7 +185,7 @@ if __name__ == "__main__":
     checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_032]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[2]"
     support_image = ["./inference_data/support/800px-2010_brown_BMW_530i_rear.jpg"]
     support_annotation = ["./inference_data/support/800px-2010_brown_BMW_530i_rear.json"]
-    query_image = "./inference_data/query/emblem_1.jpg"
+    query_image = "./inference_data/query/bmw_f30_m3_bonnet_rare_for_3_s_1594186506_99877b53_progressive.jpg"
 
     cfg = load_config(os.path.join(
         "logs",
