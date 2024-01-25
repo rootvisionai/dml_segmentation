@@ -8,7 +8,7 @@ model:
 
 data:
   folder_structure: "separate_json" # separate, separate_json, unified
-  dataset: "bmw_emblem"
+  dataset: "bmw_support_images"
   input_size: 224
   nb_classes: 2
 
@@ -50,7 +50,7 @@ training:
 
 finetune:
   epochs: 100
-  learning_rate: 0.0001
+  learning_rate: 0.001
 
 proxy_anchor:
   alpha: 32
