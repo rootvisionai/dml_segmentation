@@ -1,5 +1,6 @@
-import os
-import json
+import random
+
+from PIL import Image
 import cv2
 import torch
 import numpy as np
@@ -13,6 +14,7 @@ from itertools import permutations
 from random import shuffle
 
 color_numbers = list(range(32, 255, 32))
+random.seed(7)
 COLORMAP = list(permutations(color_numbers, 3))
 shuffle(COLORMAP)
 COLORMAP = torch.tensor(COLORMAP)
@@ -157,7 +159,7 @@ class Inference:
     def postprocess(self, inference_output, probs):
         inference_output = inference_output.squeeze(1)
         colored_image = COLORMAP.to(self.device)[inference_output.long()][0].to(torch.uint8).cpu().numpy()
-        probs = (probs * 255).squeeze(1).permute(1, 2, 0).to(torch.uint8).cpu().numpy()
+        probs = (probs * 255).squeeze(0).permute(1, 2, 0).to(torch.uint8).cpu().numpy()
 
         try:
             colored_image = cv2.resize(colored_image, self.original_size)
@@ -168,9 +170,9 @@ class Inference:
 
             probs = cv2.resize(probs, self.original_size)
             probs = probs[
-                    self.padding["x"]:probs.shape[0]-self.padding["x"],
-                    self.padding["y"]:probs.shape[1]-self.padding["y"]
-                    ]
+                   self.padding["x"]:probs.shape[0] - self.padding["x"],
+                   self.padding["y"]:probs.shape[1] - self.padding["y"]
+                   ]
 
         except cv2.error as e:
             print("Error resizing image:", e)
@@ -182,10 +184,15 @@ class Inference:
 
 
 if __name__ == "__main__":
+    import time
+    import glob
+    import os
+    import json
+
     checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_032]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[2]"
-    support_image = ["./inference_data/support/800px-2010_brown_BMW_530i_rear.jpg"]
-    support_annotation = ["./inference_data/support/800px-2010_brown_BMW_530i_rear.json"]
-    query_image = "./inference_data/query/emblem_1.jpg"
+    support_image = ["./inference_data/support/VIN-3MW23CM08R8E36994_G42_23CM_Image-0001_f76b28ac-ead1-4fdd-adf9-6f12c5055251.jpg"]
+    support_annotation = ["./inference_data/support/VIN-3MW23CM08R8E36994_G42_23CM_Image-0001_f76b28ac-ead1-4fdd-adf9-6f12c5055251.json"]
+    query_images = glob.glob(os.path.join("inference_data", "query", "bmw_emblems", "*.jpg"))
 
     cfg = load_config(os.path.join(
         "logs",
@@ -201,7 +208,28 @@ if __name__ == "__main__":
 
     instance = Inference(cfg, checkpoint_path=checkpoint_path, label_map_path=os.path.join("inference_data", "label_map.json"))
     instance.load_supports(image_paths=support_image, mask_paths=support_annotation)
-    output, probs = instance.process(query_image_path=query_image)
-    colored, probs = instance.postprocess(output, probs)
-    cv2.imwrite(filename="colored_output.jpg", img=colored)
-    cv2.imwrite(filename="probs.jpg", img=probs)
+
+    for k, query_image in enumerate(query_images):
+        st = time.time()
+        output, probs = instance.process(query_image_path=query_image)
+        colored, probs = instance.postprocess(output, probs)
+
+        os.makedirs("outputs", exist_ok=True)
+        qimg = cv2.imread(query_image)
+        qimg = cv2.cvtColor(qimg, cv2.COLOR_BGR2RGB)
+        size = qimg.shape[0:2][::-1]
+        colored = cv2.resize(colored, size)
+        colored = colored/255
+        qimg = qimg / 255
+
+        colored = ((colored * 0.5) + (qimg * 0.5))/2
+        colored = colored * 255
+        colored = np.asarray(colored, dtype=np.uint8)
+
+        query_image_name = query_image.split("\\")[-1]
+        Image.fromarray(colored).save(fp=os.path.join("outputs", f"{query_image_name}"))
+        # cv2.imwrite(filename=os.path.join("outputs", f"{query_image}"), img=colored)
+        # cv2.imwrite(filename=os.path.join("outputs", "probs.jpg"), img=probs)
+        et = time.time()
+        print(f"Processed {query_image} | {st-et}")
+

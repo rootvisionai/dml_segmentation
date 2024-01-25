@@ -10,6 +10,7 @@ import models
 from utils import load_config
 import losses
 from proxy_anchor_loss import ProxyAnchorLoss
+from transformers import get_scheduler
 
 model = None
 
@@ -32,7 +33,7 @@ def main(cfg):
 
     if cfg.training.criterion == "ProxyAnchor":
         # proxy anchor loss initialization
-        if not os.path.isfile(os.path.join(checkpoint_dir, "proxies.pth")):
+        if not os.path.isfile(os.path.join(checkpoint_dir, "proxies_finetuned.pth")):
             dl_gen = get_dataloader(
                 root=os.path.join("datasets", cfg.data.dataset),
                 set_type="val",
@@ -55,6 +56,10 @@ def main(cfg):
     else:
         proxies = None
 
+    lr_scheduler = get_scheduler(
+        name="linear", optimizer=model.optimizer, num_warmup_steps=0, num_training_steps=cfg.finetune.epochs*len(dl_tr)
+    )
+
     loss_hist = collections.deque(maxlen=3)
     for epoch in range(0, cfg.finetune.epochs):
         model.train()
@@ -67,6 +72,8 @@ def main(cfg):
                     mask.to(torch.int8).to(cfg.training.device),
                     proxies=proxies
                 )
+                lr_scheduler.step()
+
                 t1 = time.time()
                 loss_hist.append(loss)
                 print(f"EPOCH: {epoch} | ITER: {i}-{k}/{len(dl_tr)} " + \
@@ -98,7 +105,7 @@ if __name__ == "__main__":
     model.define_optimizer(cfg)
 
     # define checkpoint
-    checkpoint_dir = vars(cfg.model) if not cfg.model.use_smp else vars(cfg.model.smp)
+    checkpoint_dir = vars(cfg.model)
     checkpoint_dir = [f"{key}[{checkpoint_dir[key]}]" for key in checkpoint_dir]
     checkpoint_dir = "-".join(checkpoint_dir)
 
