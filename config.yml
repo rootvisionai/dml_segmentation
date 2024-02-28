@@ -99,4 +99,36 @@ inference:
 #      freeze_backbone=cfg.model.freeze_backbone
 #  )
 
-
+sam:
+  debug: True # to use this mode, run in normal mode first to get npy files and crops
+  visualise: False # visualize sam inference
+  sam_model_name: "vit_h"
+  sam_model_path: r"C:\Users\nikita.karpuks\.cache\torch\hub\checkpoints\sam_vit_h_4b8939.pth"
+  model:
+    backbone: ResNet # ViT, ResNet, EffNetV2, SqueezeNet, ConvNext, SwinTransformer
+    arch: resnet101
+    # ResNet          -> resnet18, resnet34, resnet50, resnet101, resnet152
+    # ViT             -> vit_b_16, vit_b_32, vit_l_16, vit_l_32
+    # EffNetV2        -> efficientnet_v2_s, efficientnet_v2_m, efficientnet_v2_l
+    # SwinTransformer -> tiny, small, base
+    # ConvNext        -> tiny, small, base, large
+    emb_size_reduction_status: False
+    emb_size_reduction_heads: 1
+    embedding_size: 512
+    freeze_backbone: False
+    min_mask_region_area: 500
+  data:
+    root_path: "./sam"
+    threshold_orig_overlap: 0.1 # if overlap is bigger then sam mask will be filtered
+    min_area: 10 # in pixels
+    epsilon: 0.001
+    n_clusters: 30
+    preprocessing:
+      pad_to_square: 1
+      input_size: 224
+      normalize:
+        p: 0
+  training:
+    device: "cpu"
+    batch_size: 1
+    num_workers: 0

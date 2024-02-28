@@ -190,9 +190,15 @@ if __name__ == "__main__":
     import json
 
     checkpoint_dir = "arch[FPN]-backbone[timm-regnetx_032]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[2]"
-    support_image = ["./inference_data/support/VIN-3MW23CM08R8E36994_G42_23CM_Image-0001_f76b28ac-ead1-4fdd-adf9-6f12c5055251.jpg"]
-    support_annotation = ["./inference_data/support/VIN-3MW23CM08R8E36994_G42_23CM_Image-0001_f76b28ac-ead1-4fdd-adf9-6f12c5055251.json"]
-    query_images = glob.glob(os.path.join("inference_data", "query", "bmw_emblems", "*.jpg"))
+    support_images = ["./inference_data/support/VIN-WBA21BX0107P11721_U06_21BX_Image-0001_d05350d6-b1ef-4aaf-b7de-733b3192a7f2.jpg"]
+
+    support_exts = ["." + support_image.split(".")[-1] for support_image in support_images]
+    support_annotations = [support_image.replace(support_exts[i], ".json") for i, support_image in enumerate(support_images)]
+    category = "P07-front"
+    query_images = []
+    exts = [".jpg", ".jpeg", ".png", ".bmp"]
+    for ext in exts:
+        query_images += glob.glob(os.path.join("inference_data", "query", category, "*"+ext))
 
     cfg = load_config(os.path.join(
         "logs",
@@ -207,7 +213,7 @@ if __name__ == "__main__":
     )
 
     instance = Inference(cfg, checkpoint_path=checkpoint_path, label_map_path=os.path.join("inference_data", "label_map.json"))
-    instance.load_supports(image_paths=support_image, mask_paths=support_annotation)
+    instance.load_supports(image_paths=support_images, mask_paths=support_annotations)
 
     for k, query_image in enumerate(query_images):
         st = time.time()
@@ -222,14 +228,13 @@ if __name__ == "__main__":
         colored = colored/255
         qimg = qimg / 255
 
-        colored = ((colored * 0.5) + (qimg * 0.5))/2
+        colored = ((colored * 0.9) + (qimg * 0.5))/2
         colored = colored * 255
         colored = np.asarray(colored, dtype=np.uint8)
 
-        query_image_name = query_image.split("\\")[-1]
-        Image.fromarray(colored).save(fp=os.path.join("outputs", f"{query_image_name}"))
+        inferenced_image_name = query_image.split("\\")[-1].replace(".", "_inferenced.")
+        Image.fromarray(colored).save(fp=os.path.join("outputs", f"{inferenced_image_name}"))
         # cv2.imwrite(filename=os.path.join("outputs", f"{query_image}"), img=colored)
         # cv2.imwrite(filename=os.path.join("outputs", "probs.jpg"), img=probs)
         et = time.time()
-        print(f"Processed {query_image} | {st-et}")
-
+        print(f"Processed {query_image} | {et - st}")
