@@ -51,8 +51,6 @@ def generate_embedding(cfg, model, dl_gen):
         os.path.join(cfg.checkpoint_dir, "collection.pth")
     )
 
-    return collection
-
 
 def img_load(path):
     im = Image.open(path).convert('RGB')
@@ -82,9 +80,7 @@ class ImageFolder(torchvision.datasets.ImageFolder):
         return len(self.classes)
 
 
-def load_dataset(cfg):
-
-    data_path = os.path.join(cfg.data.root_path, "images", "masks_filtered")
+def load_dataset(cfg, data_path):
 
     ds = ImageFolder(
         root=data_path,
@@ -222,10 +218,9 @@ class Mask2Polygon:
         return polygons
 
 
-def get_images_and_annots(config, img_folder):
+def get_images_and_annots(img_folder):
     img_ext = (".jpg", ".jpeg", ".png", ".bmp", ".tiff")
-    images = [os.path.join(config.data.root_path, "images", "original", file) for file in os.listdir(img_folder)
-                if file.lower().endswith(img_ext)]
+    images = [os.path.join(img_folder, file) for file in os.listdir(img_folder) if file.lower().endswith(img_ext)]
     annotations = []
     for image in images:
         ext = "." + image.split(".")[-1]
