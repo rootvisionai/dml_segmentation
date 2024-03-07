@@ -1,22 +1,21 @@
+Note: hyperparameters of sam feature are located under cfg.sam section
+
 Usage Instruction:
 
-I am reverencing to "sam" section under config.yml when I talk about hyperparameters
+* download sam model from https://github.com/facebookresearch/segment-anything
+* put local path to it inside your config
+* put your images and their json annotations inside config.sam.root_path/data/original directory
+* run sam_run.py script under root to get annotations
 
-Put your images and their json annotations inside config.sam.root_path/data/original directory
-This feature has functionality to keep your temporary calculation results. 
-If you are changing following hyperparameters:
-* anything under "embeddings_model"
-* anything under "data.preprocessing"
-* data.n_clusters
-then sam inference results from previous iteration (if it exists) will be taken and clustering part only will be started
+This feature has functionality to keep your temporary calculation results inside "auxiliary" folder. 
+If you are running it for the 1st time, or you're changing any of following hyperparameters:
+* sam_model_name
+* min_mask_region_area
+* threshold_orig_overlap
+* min_polygon_area
+* epsilon
+* any data inside your original json annotations
 
-Take into account, that in case if
-* it is your first run
-* you change current or add new json files in original folder
-* you change any of these hyperparameters:
-    ** sam_model_name
-    ** min_mask_region_area
-    ** threshold_orig_overlap
-    ** min_polygon_area
-    ** epsilon
-then sam inference will be started from the very beginning
+then new sam inference will start. Otherwise, sam inference results from previous iteration will be taken.
+
+Hyperparameters descriptions are commented inside config file.
