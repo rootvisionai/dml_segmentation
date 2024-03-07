@@ -1,7 +1,6 @@
 import os
 import shutil
 import json
-import hashlib
 import copy
 from tqdm import tqdm
 import cv2
@@ -9,29 +8,16 @@ import numpy as np
 import torch
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 import supervision as sv
-from sklearn.cluster import KMeans
-
-from utils import load_config
-from sam.models import load_model
-from sam.utils_sam import (generate_embedding, load_dataset, view_clusters,
-                           Mask2Polygon, create_rectangular_crop, fiter_target_mask,
-                           get_images_and_annots, get_ooi)
 
 import warnings
 warnings.filterwarnings('ignore')
-
 import logging
 logging.basicConfig(level=logging.INFO)
 
-
-def calculate_data_md5(annotations):
-    s = ""
-    for annot in annotations:
-        with open(annot, 'r') as f:
-            s += f.read()
-    md5_value = hashlib.md5(s.encode('utf-8')).hexdigest()
-
-    return md5_value
+from utils import load_config
+from sam.utils_sam import (calculate_data_md5, fill_hash_file,
+                           Mask2Polygon, create_rectangular_crop, fiter_target_mask,
+                           get_images_and_annots, get_ooi, get_embeddings, get_clusters)
 
 
 def get_data(cfg):
@@ -80,20 +66,6 @@ def check_reusability(cfg, md5):
             os.makedirs(aux_dir_name, exist_ok=True)
 
         return False
-
-
-def fill_hash_file(cfg, md5):
-    aux_dir_name = os.path.join(cfg.data.root_path, "data", "auxiliary")
-    os.makedirs(aux_dir_name, exist_ok=True)
-    hash_path = os.path.join(aux_dir_name, "hash_and_hyps.txt")
-
-    with open(hash_path, 'w') as f:
-        f.write(f"""sam_model_name: {cfg.sam_model_name}
-min_mask_region_area: {cfg.data.min_mask_region_area}
-threshold_orig_overlap: {cfg.data.threshold_orig_overlap}
-min_polygon_area: {cfg.data.min_polygon_area}
-epsilon: {cfg.data.epsilon}
-jsons hash: {md5}""")
 
 
 def sam_inference(cfg, img_list, annot_list, device):
@@ -155,93 +127,6 @@ def sam_inference(cfg, img_list, annot_list, device):
 
     np.save(os.path.join(aux_path, "polygons.npy"), np.array(polygons_results, dtype=object), allow_pickle=True)
     logging.info("SAM inference completed")
-
-
-def get_embeddings(cfg, device):
-    logging.info("Getting crops embeddings...")
-    ckpt_name = (f"arch[{cfg.embeddings_model.arch}]-backbone[{cfg.embeddings_model.backbone}]-emb_size-[{cfg.embeddings_model.embedding_size}]-"
-                 f"input_size[{cfg.data.preprocessing.input_size}]")
-    aux_path = os.path.join(cfg.data.root_path, "data", "auxiliary")
-    cfg.checkpoint_dir = os.path.join(aux_path, "logs", ckpt_name)
-
-    if os.path.isfile(os.path.join(cfg.checkpoint_dir, "collection.pth")):
-        logging.info("Skipping embeddings part, cached data was found")
-    else:
-        logging.info("Getting crops embeddings...")
-        os.makedirs(cfg.checkpoint_dir, exist_ok=True)
-        model = load_model(cfg)
-        model.to(device)
-        data_path = os.path.join(aux_path, "masks_filtered")
-        dl_gen = load_dataset(cfg, data_path)
-        generate_embedding(cfg, model, dl_gen, device)
-        logging.info("Embeddings are generated")
-
-
-def get_clusters(cfg, img_list, annot_list):
-    logging.info("Starting clustering process...")
-    collection = torch.load(os.path.join(cfg.checkpoint_dir, "collection.pth"))
-    feat = np.array(collection["embeddings"])
-
-    last_run = 0
-    dir_path = os.path.join(cfg.data.root_path, "runs")
-    os.makedirs(dir_path, exist_ok=True)
-    files_dir = [
-        f for f in os.listdir(dir_path) if os.path.isdir(os.path.join(dir_path, f))
-    ]
-    for subdir in files_dir:
-        run = subdir.split("exp")[-1]
-        if int(run) > last_run:
-            last_run = int(run)
-
-    result_dir = os.path.join(dir_path, "exp" + str(last_run + 1))
-    os.makedirs(result_dir, exist_ok=True)
-
-    aux_path = os.path.join(cfg.data.root_path, "data", "auxiliary")
-    polygons_results = np.load(os.path.join(aux_path, "polygons.npy"), allow_pickle=True)
-
-    os.makedirs(os.path.join(result_dir, "annotated"), exist_ok=True)
-    # paths for result annotations
-    annot_list_modified = [os.path.join(result_dir, "annotated", os.path.basename(annot)) for annot in annot_list]
-
-    # cluster feature vectors
-    kmeans = KMeans(n_clusters=cfg.data.n_clusters, random_state=0)
-    kmeans.fit(feat)
-
-    logging.info("Clustering is done")
-
-    counter = 0
-    for i, (results, annot_path) in tqdm(enumerate(zip(polygons_results, annot_list))):
-        # copy image in result folder
-        shutil.copy(img_list[i], os.path.join(result_dir, "annotated", os.path.basename(img_list[i])))
-
-        with open(annot_path, 'r') as file:
-            json_modified = json.load(file)
-
-        for polygons in results:
-            label = kmeans.labels_[counter]
-            counter += 1
-            for polygon in polygons:
-                json_modified["shapes"].append({'flags': {}, 'group_id': None, 'description': "", 'shape_type': 'polygon',
-                                                'mask': None, 'label': f"class_{str(label)}", 'points': polygon})
-        with open(annot_list_modified[i], 'w', encoding='utf-8') as f:
-            json.dump(json_modified, f, ensure_ascii=False, indent=4)
-
-    # holds the cluster id and the images { id: [images] }
-    groups = {}
-    for file, cluster in zip(collection["img_paths"], kmeans.labels_):
-        if cluster not in groups.keys():
-            groups[cluster] = []
-            groups[cluster].append(file)
-        else:
-            groups[cluster].append(file)
-
-    logging.info("Saving clusters visualizations")
-
-    cluster_output_dir = os.path.join(result_dir, "clusters")
-    for i, label in tqdm(enumerate(np.unique(kmeans.labels_))):
-        view_clusters(groups=groups, cluster=label, output_dir=cluster_output_dir, cluster_num=i)
-
-    logging.info(f"Result annotations are created. Find them under {os.path.join(result_dir, 'annotated')}")
 
 
 if __name__ == "__main__":
