@@ -100,10 +100,9 @@ inference:
 #  )
 
 sam:
-  debug: True # to use this mode, run in normal mode first to get npy files and crops
   visualise: False # visualize sam inference
   sam_model_name: "vit_h" # "vit_l" or "vit_b"
-  sam_model_path: r"C:\Users\nikita.karpuks\.cache\torch\hub\checkpoints\sam_vit_h_4b8939.pth" # you should have the model in local
+  sam_model_path: C:\Users\nikita.karpuks\.cache\torch\hub\checkpoints\sam_vit_h_4b8939.pth # you should have the model in local
 
   data:
     root_path: "./sam"
@@ -112,7 +111,7 @@ sam:
     min_polygon_area: 10 # polygon -> mask parameter
     epsilon: 0.001 # polygon -> mask parameter
     n_clusters: 30 # how many object classes in result annotation you want to have (plus original)
-    preprocessing:
+    preprocessing: # for embeddings generation
       pad_to_square: 1
       input_size: 224
       normalize:
@@ -130,3 +129,5 @@ sam:
     emb_size_reduction_heads: 1
     embedding_size: 512
     freeze_backbone: False
+    batch_size: 1
+    num_workers: 0

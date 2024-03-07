@@ -1,7 +1,6 @@
 import os
 import shutil
 import json
-import logging
 import hashlib
 import copy
 from tqdm import tqdm
@@ -20,6 +19,9 @@ from sam.utils_sam import (generate_embedding, load_dataset, view_clusters,
 
 import warnings
 warnings.filterwarnings('ignore')
+
+import logging
+logging.basicConfig(level=logging.INFO)
 
 
 def calculate_data_md5(annotations):
@@ -44,21 +46,32 @@ def get_data(cfg):
     return img_list, annot_list
 
 
-def check_reusability(cfg, annot_list):
+def check_reusability(cfg, md5):
     sam_name = cfg.sam_model_name
-    md5_value = calculate_data_md5(annot_list)
+    min_mask_region_area = str(cfg.data.min_mask_region_area)
+    threshold_orig_overlap = str(cfg.data.threshold_orig_overlap)
+    min_polygon_area = str(cfg.data.min_polygon_area)
+    epsilon = str(cfg.data.epsilon)
 
     aux_dir_name = os.path.join(cfg.data.root_path, "data", "auxiliary")
-    hash_path = os.path.join(aux_dir_name, "hash.txt")
+    hash_path = os.path.join(aux_dir_name, "hash_and_hyps.txt")
     if os.path.exists(hash_path):
         with open(hash_path) as file:
             lines = file.read().splitlines()
-            hash_sam_name = lines[0]
-            hash_md5_value = lines[1]
-        if sam_name == hash_sam_name and md5_value == hash_md5_value:
+            hash_sam_name = lines[0].split(" ")[-1]
+            hash_min_mask_region_area = lines[1].split(" ")[-1]
+            hash_threshold_orig_overlap = lines[2].split(" ")[-1]
+            hash_min_polygon_area = lines[3].split(" ")[-1]
+            hash_epsilon = lines[4].split(" ")[-1]
+            hash_md5_value = lines[5].split(" ")[-1]
+        if (sam_name == hash_sam_name and min_mask_region_area == hash_min_mask_region_area
+            and threshold_orig_overlap == hash_threshold_orig_overlap and min_polygon_area == hash_min_polygon_area
+                and epsilon == hash_epsilon and md5 == hash_md5_value):
+
             return True
         else:
             shutil.rmtree(aux_dir_name)
+            return False
 
     else:
         if os.path.exists(aux_dir_name):
@@ -69,14 +82,28 @@ def check_reusability(cfg, annot_list):
         return False
 
 
+def fill_hash_file(cfg, md5):
+    aux_dir_name = os.path.join(cfg.data.root_path, "data", "auxiliary")
+    os.makedirs(aux_dir_name, exist_ok=True)
+    hash_path = os.path.join(aux_dir_name, "hash_and_hyps.txt")
+
+    with open(hash_path, 'w') as f:
+        f.write(f"""sam_model_name: {cfg.sam_model_name}
+min_mask_region_area: {cfg.data.min_mask_region_area}
+threshold_orig_overlap: {cfg.data.threshold_orig_overlap}
+min_polygon_area: {cfg.data.min_polygon_area}
+epsilon: {cfg.data.epsilon}
+jsons hash: {md5}""")
+
+
 def sam_inference(cfg, img_list, annot_list, device):
 
     logging.info("Starting SAM inference...")
     sam = sam_model_registry[cfg.sam_model_name](checkpoint=cfg.sam_model_path)
     sam.to(device=device)
-    mask_generator = SamAutomaticMaskGenerator(model=sam, min_mask_region_area=cfg.min_mask_region_area)
+    mask_generator = SamAutomaticMaskGenerator(model=sam, min_mask_region_area=cfg.data.min_mask_region_area)
 
-    aux_path = os.path.join(cfg.data.root_path, "images", "data", "auxiliary")
+    aux_path = os.path.join(cfg.data.root_path, "data", "auxiliary")
     polygons_results = []
     for i, (img_path, annot_path) in tqdm(enumerate(zip(img_list, annot_list))):
 
@@ -98,7 +125,7 @@ def sam_inference(cfg, img_list, annot_list, device):
             os.makedirs(out_path, exist_ok=True)
             cv2.imwrite(os.path.join(out_path, os.path.basename(img_path)), annotated_image)
 
-        # create raw masks
+        logging.info("Creating raw masks")
         create_rectangular_crop(rgb_image=img, results=sam_output,
                                 output_dir=os.path.join(aux_path, "masks_raw"), index=i)
 
@@ -110,13 +137,15 @@ def sam_inference(cfg, img_list, annot_list, device):
         ooi_masks = get_ooi(json_file=original_json, width=width, height=height)
         sam_output_filtered = fiter_target_mask(masks_roi=ooi_masks, sam_output=sam_output,
                                                 threshold=cfg.data.threshold_orig_overlap)
+
         # create masks with filtered ooi
+        logging.info("Creating filtered masks")
         create_rectangular_crop(rgb_image=img, results=sam_output_filtered,
                                 output_dir=os.path.join(aux_path, "masks_filtered", "crops"),
                                 index=i)
 
         masks = [result["segmentation"] for result in sam_output_filtered]
-        mask2polygon_converter = Mask2Polygon(min_area=cfg.data.min_area, epsilon=cfg.data.epsilon)
+        mask2polygon_converter = Mask2Polygon(min_area=cfg.data.min_polygon_area, epsilon=cfg.data.epsilon)
         poly_res = []
         for mask in masks:
             res = mask2polygon_converter.rle2polygon(mask)
@@ -130,9 +159,9 @@ def sam_inference(cfg, img_list, annot_list, device):
 
 def get_embeddings(cfg, device):
     logging.info("Getting crops embeddings...")
-    ckpt_name = (f"arch[{cfg.model.arch}]-backbone[{cfg.model.backbone}]-emb_size-[{cfg.model.embedding_size}]-"
+    ckpt_name = (f"arch[{cfg.embeddings_model.arch}]-backbone[{cfg.embeddings_model.backbone}]-emb_size-[{cfg.embeddings_model.embedding_size}]-"
                  f"input_size[{cfg.data.preprocessing.input_size}]")
-    aux_path = os.path.join(cfg.data.root_path, "images", "data", "auxiliary")
+    aux_path = os.path.join(cfg.data.root_path, "data", "auxiliary")
     cfg.checkpoint_dir = os.path.join(aux_path, "logs", ckpt_name)
 
     if os.path.isfile(os.path.join(cfg.checkpoint_dir, "collection.pth")):
@@ -144,7 +173,7 @@ def get_embeddings(cfg, device):
         model.to(device)
         data_path = os.path.join(aux_path, "masks_filtered")
         dl_gen = load_dataset(cfg, data_path)
-        generate_embedding(cfg, model, dl_gen)
+        generate_embedding(cfg, model, dl_gen, device)
         logging.info("Embeddings are generated")
 
 
@@ -155,6 +184,7 @@ def get_clusters(cfg, img_list, annot_list):
 
     last_run = 0
     dir_path = os.path.join(cfg.data.root_path, "runs")
+    os.makedirs(dir_path, exist_ok=True)
     files_dir = [
         f for f in os.listdir(dir_path) if os.path.isdir(os.path.join(dir_path, f))
     ]
@@ -166,11 +196,12 @@ def get_clusters(cfg, img_list, annot_list):
     result_dir = os.path.join(dir_path, "exp" + str(last_run + 1))
     os.makedirs(result_dir, exist_ok=True)
 
-    aux_path = os.path.join(cfg.data.root_path, "images", "data", "auxiliary")
+    aux_path = os.path.join(cfg.data.root_path, "data", "auxiliary")
     polygons_results = np.load(os.path.join(aux_path, "polygons.npy"), allow_pickle=True)
 
+    os.makedirs(os.path.join(result_dir, "annotated"), exist_ok=True)
     # paths for result annotations
-    annot_list_modified = [os.path.join(result_dir, os.path.basename(annot)) for annot in annot_list]
+    annot_list_modified = [os.path.join(result_dir, "annotated", os.path.basename(annot)) for annot in annot_list]
 
     # cluster feature vectors
     kmeans = KMeans(n_clusters=cfg.data.n_clusters, random_state=0)
@@ -181,7 +212,7 @@ def get_clusters(cfg, img_list, annot_list):
     counter = 0
     for i, (results, annot_path) in tqdm(enumerate(zip(polygons_results, annot_list))):
         # copy image in result folder
-        shutil.copy(img_list[i], os.path.join(result_dir, os.path.basename(img_list[i])))
+        shutil.copy(img_list[i], os.path.join(result_dir, "annotated", os.path.basename(img_list[i])))
 
         with open(annot_path, 'r') as file:
             json_modified = json.load(file)
@@ -204,11 +235,13 @@ def get_clusters(cfg, img_list, annot_list):
         else:
             groups[cluster].append(file)
 
-    cluster_output_dir = os.path.join(cfg.data.root_path, "images", "clusters")
-    for i, label in enumerate(np.unique(kmeans.labels_)):
+    logging.info("Saving clusters visualizations")
+
+    cluster_output_dir = os.path.join(result_dir, "clusters")
+    for i, label in tqdm(enumerate(np.unique(kmeans.labels_))):
         view_clusters(groups=groups, cluster=label, output_dir=cluster_output_dir, cluster_num=i)
 
-    logging.info(f"Result annotations are created. Find them under {result_dir}")
+    logging.info(f"Result annotations are created. Find them under {os.path.join(result_dir, 'annotated')}")
 
 
 if __name__ == "__main__":
@@ -220,9 +253,12 @@ if __name__ == "__main__":
     dvc = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     images, annotations = get_data(cfg=config)
-    if check_reusability(cfg=config, annot_list=annotations):
+    # calculates md5 for all jsons
+    md5_value = calculate_data_md5(annotations)
+    if check_reusability(cfg=config, md5=md5_value):
         logging.info("SAM inference is skipped, cached data was found")
     else:
+        fill_hash_file(cfg=config, md5=md5_value)
         sam_inference(cfg=config, img_list=images, annot_list=annotations, device=dvc)
 
     get_embeddings(cfg=config, device=dvc)

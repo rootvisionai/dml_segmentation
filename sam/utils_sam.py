@@ -10,16 +10,16 @@ import matplotlib.pyplot as plt
 from .augmentations import TransformEvaluate
 
 
-def generate_embedding(cfg, model, dl_gen):
+def generate_embedding(cfg, model, dl_gen, device):
     model.eval()
-    model = model.to(cfg.training.device)
+    model = model.to(device)
     pbar = tqdm.tqdm(enumerate(dl_gen))
     img_paths = []
     # labels_int = []
     # labels_str = []
     for batch_id, batch in pbar:
         with torch.no_grad():
-            emb = model(batch["image"].to(cfg.training.device))
+            emb = model(batch["image"].to(device))
         # lint = batch["label_int"]
         # lstr = batch["label_str"]
         i_paths = batch["img_path"]
@@ -89,10 +89,10 @@ def load_dataset(cfg, data_path):
 
     dl = torch.utils.data.DataLoader(
         ds,
-        batch_size=cfg.training.batch_size,
+        batch_size=cfg.embeddings_model.batch_size,
         collate_fn=collater,
         shuffle=False,
-        num_workers=cfg.training.num_workers,
+        num_workers=cfg.embeddings_model.num_workers,
         drop_last=False,
         pin_memory=True
     )
@@ -241,7 +241,7 @@ def get_ooi(json_file, width, height):
 
 def create_rectangular_crop(rgb_image, results, output_dir, index):
     os.makedirs(output_dir, exist_ok=True)
-    for i, result in tqdm.tqdm(enumerate(results)):
+    for i, result in enumerate(results):
         mask_array = result["segmentation"]
         bbox = result["bbox"]
 
