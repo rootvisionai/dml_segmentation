@@ -12,7 +12,7 @@
 .idea
 *.xml
 *.iml
-*__pycache__
+__pycache__
 *.pyc
 /pretrained/
 /.$dml_few_shot.drawio.bkp
