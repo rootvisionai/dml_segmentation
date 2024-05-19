@@ -50,13 +50,8 @@ class Inference:
     def __init__(self, cfg, checkpoint_path):
         self.cfg = cfg
         self.device = cfg.inference.device
-        # get model
-        model = models.load(cfg)
-        model = model.to(torch.float32)
-        self.model = model.to(self.device)
-        self.model.eval()
 
-        last_epoch = self.model.load_checkpoint(checkpoint_path, device=self.device, load_opt=False)
+        last_epoch = self.load(checkpoint_path)
 
         print(
             f"Loaded model: {checkpoint_path}\n",
@@ -65,6 +60,15 @@ class Inference:
 
         self.transform = self.define_transform()
         self.support_ready = False
+
+    def flatten(self, x):
+        x = x.view(x.shape[0], x.shape[1], -1).permute(0, 2, 1).contiguous()
+        x = x.view(-1, x.shape[-1])
+        return x
+
+    def load(self, checkpoint_path):
+        self.model = torch.jit.load(f=checkpoint_path, map_location=self.device)
+        self.model.eval()
 
     def define_transform(self):
         val_transform = A.Compose(
@@ -169,13 +173,13 @@ class Inference:
 
     def define_support(self, si, sm, device, negative_ratio):
         s_emb = torch.nn.functional.normalize(
-            self.model.flatten(
+            self.flatten(
                 self.model.forward_all(si.to(torch.float32).to(device))
             ),
             2, 1
         )
 
-        sm = self.model.flatten(sm.to(torch.int8).to(device)).flatten()
+        sm = self.flatten(sm.to(torch.int8).to(device)).flatten()
         neg_indices = torch.where(sm == 0)
         pos_indices = torch.where(sm == 1)
         n_size = pos_indices[0].shape[0] * negative_ratio
@@ -199,7 +203,7 @@ class Inference:
                 self.define_support(si, sm, device, negative_ratio)
 
             q_emb = torch.nn.functional.normalize(
-                self.model.flatten(
+                self.flatten(
                     self.model.forward_all(qi.to(torch.float32).to(device))
                 ),
                 2, 1
@@ -296,7 +300,7 @@ if __name__ == "__main__":
     checkpoint_path = os.path.join(
         "logs",
         checkpoint_dir,
-        "ckpt_finetuned.pth"
+        "packaged.pth"
     )
 
     instance = Inference(cfg, checkpoint_path=checkpoint_path)
@@ -304,11 +308,14 @@ if __name__ == "__main__":
 
     for k, query_image_path in enumerate(query_images):
         print(f"Processing {query_image_path}")
-        st = time.time()
 
+        st = time.time()
         query_image = instance.load_query(image_path=query_image_path)
+        lt = time.time()
         output = instance.process(query_image=query_image)
+        pt = time.time()
         output_post = instance.postprocess(output)
+        et = time.time()
 
         out_file_path = visualize_and_save(
             query_image_path=query_image_path,
@@ -317,5 +324,8 @@ if __name__ == "__main__":
             mask_weight=0.8
         )
 
-        et = time.time()
-        print(f"Saved to {out_file_path} | {st-et}")
+        print(f"\nSaved to {out_file_path}\n"
+              f"  Total Time: {et-st} | \n"
+              f"  Loading Time: {lt-st} | \n"
+              f"  Processing Time: {pt-lt} | \n"
+              f"  Post-processing Time: {et-pt} | \n")

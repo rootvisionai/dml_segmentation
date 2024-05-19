@@ -1,5 +1,4 @@
 import copy
-
 import torch
 import time
 import os
@@ -22,35 +21,38 @@ class Compile:
         checkpoint_dir = [f"{key}[{checkpoint_dir[key]}]" for key in checkpoint_dir]
         checkpoint_dir = "-".join(checkpoint_dir)
 
-        checkpoint_dir = os.path.join("logs", checkpoint_dir)
-        checkpoint_path = os.path.join(checkpoint_dir, "ckpt.pth")
+        self.checkpoint_dir = os.path.join("logs", checkpoint_dir)
+        checkpoint_path = os.path.join(self.checkpoint_dir, "ckpt_finetuned.pth")
 
         model = models.load(cfg)
         model.load_checkpoint(checkpoint_path, device=cfg.training.device, load_opt=False)
-        model.to(self.device)
+        model.to(self.device).to(torch.float32)
         model.eval()
         self.model = model.half() if self.half_precision else model
 
     def run(self):
-        dummy = torch.rand(1, 3, cfg.data.input_size, cfg.data.input_size).to(self.device)
-        dummy = dummy.half() if self.half_precision else dummy
+        dummy = torch.rand(1, 3, self.cfg.data.input_size, self.cfg.data.input_size).to(self.device)
+        dummy = dummy.half() if self.half_precision else dummy.to(torch.float32)
 
-        self.module = torch.jit.trace(self.model.forward_all, dummy)
+        self.module = torch.jit.trace_module(self.model, {'forward_all': dummy})
 
     def save(self):
-        torch.jit.save(self.module, './packaged.pth')
+        torch.jit.save(self.module, os.path.join(self.checkpoint_dir, './packaged.pth'))
 
     def load(self):
-        self.loaded_module = torch.jit.load(f='./packaged.pth', map_location=self.device)
+        self.loaded_module = torch.jit.load(
+            f=os.path.join(self.checkpoint_dir, './packaged.pth'),
+            map_location=self.device
+        )
         self.loaded_module.eval()
 
     def test(self):
-        dummy = torch.rand(1, 3, cfg.data.input_size, cfg.data.input_size).to(self.device)
+        dummy = torch.rand(1, 3, self.cfg.data.input_size, self.cfg.data.input_size).to(self.device)
         dummy = dummy.half() if self.half_precision else dummy
 
         t0 = time.time()
         with torch.no_grad():
-            out_jl = self.loaded_module(copy.deepcopy(dummy)).detach()
+            out_jl = self.loaded_module.forward_all(copy.deepcopy(dummy)).detach()
         t1 = time.time()
         with torch.no_grad():
             out_nj = self.model.forward_all(dummy).detach()
@@ -66,12 +68,14 @@ class Compile:
 
 if __name__ == "__main__":
     # import config
-    cfg = load_config("./config.yml")
-    instance = Compile(cfg, "cpu", half_precision=False)
+    cfg = load_config(os.path.join(
+        "logs",
+        "arch[Unet]-backbone[resnet50]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]",
+        "./config.yml"
+    ))
+    instance = Compile(cfg, "cuda", half_precision=False)
     instance.run()
     instance.save()
     instance.load()
-    instance.test()
-    instance.test()
     instance.test()
     instance.test()
