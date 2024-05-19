@@ -1,0 +1,6 @@
+sam_model_name: vit_b
+min_mask_region_area: 500
+threshold_orig_overlap: 0.1
+min_polygon_area: 10
+epsilon: 0.001
+jsons hash: cac8680926f45e67c649d99e7b03fd3f

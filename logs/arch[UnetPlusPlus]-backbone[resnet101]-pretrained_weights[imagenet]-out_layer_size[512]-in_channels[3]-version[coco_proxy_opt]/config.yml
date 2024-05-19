@@ -1,0 +1,133 @@
+model:
+  arch: "UnetPlusPlus"
+  backbone: "resnet101"
+  pretrained_weights: "imagenet"
+  out_layer_size: 512
+  in_channels: 3
+  version: "coco_proxy_opt"
+
+data:
+  folder_structure: "separate_json" # separate, separate_json, unified
+  dataset: "coco"
+  input_size: 224
+  nb_classes: 80
+
+  crop_image:
+      status: 0
+      x_min: 0
+      y_min: 0
+      x_max: 0
+      y_max: 0
+      
+  augmentations:
+  
+    ShiftScaleRotate:
+      shift_limit: 0.4
+      scale_limit: 0.4
+      rotate_limit: 360
+      probability: 0.8
+
+    RGBShift:
+      r_shift_limit: 100
+      g_shift_limit: 100
+      b_shift_limit: 100
+      probability: 0.3
+
+    RandomBrightnessContrast:
+      brightness_limit: 0.3
+      contrast_limit: 0.3
+      probability: 0.3
+
+training:
+  optimizer: "Lion"
+  load_opt: False
+  criterion: 'ProxyAnchor' # CrossEntropyLoss2d | DiceLoss | FocalLoss | CrossEntropyDiceLoss | BinaryCrossEntropyWithLogits2d
+  epochs: 25
+  batch_size: 8
+  learning_rate: 0.00001
+  device: "cuda"
+  num_workers: 2
+
+finetune:
+  epochs: 200
+  learning_rate: 0.0001
+
+proxy_anchor:
+  alpha: 32
+  margin: 0.8
+  lr: 0.01
+  steps: 500
+
+inference:
+  device: "cuda"
+  num_of_neighbors: 64
+  threshold: 0.95
+
+#-- Guidance for models' configuration --#
+#  model = UNet(
+#      num_classes=cfg.model.num_classes,
+#      in_channels=3,
+#      freeze_bn=cfg.model.freeze_bn
+#  )
+
+#  model = UNetResnet(
+#      num_classes=cfg.model.num_classes,
+#      in_channels=3,
+#      backbone=cfg.model.backbone,
+#      pretrained=True,
+#      freeze_bn=cfg.model.freeze_bn,
+#      freeze_backbone=cfg.model.freeze_backbone
+#  )
+
+#  model = DeepLab(
+#      num_classes=cfg.model.num_classes,
+#      in_channels=3,
+#      backbone=cfg.model.backbone,
+#      pretrained=True,
+#      output_stride=cfg.model.output_stride,
+#      freeze_bn=cfg.model.freeze_bn,
+#      freeze_backbone=cfg.model.freeze_backbone
+#  )
+
+#  model = DeepLabX(
+#      num_classes=cfg.model.num_classes,
+#      in_channels=3,
+#      backbone=cfg.model.backbone,
+#      pretrained=True,
+#      output_stride=cfg.model.output_stride,
+#      freeze_bn=cfg.model.freeze_bn,
+#      freeze_backbone=cfg.model.freeze_backbone
+#  )
+
+sam:
+  visualise: False # visualize sam inference
+  sam_model_name: "vit_b" # "vit_l" or "vit_b"
+  sam_model_path: C:\Users\evrim\.cache\torch\hub\checkpoints\sam_vit_b_01ec64.pth # you should have the model in local
+
+  data:
+    root_path: "./sam/"
+    min_mask_region_area: 500 # min area for mask's separate region
+    threshold_orig_overlap: 0.1 # if overlap is bigger then sam mask will be removed
+    min_polygon_area: 10 # polygon -> mask parameter
+    epsilon: 0.001 # polygon -> mask parameter
+    n_clusters: 30 # how many object classes in result annotation you want to have (plus original)
+    preprocessing: # for embeddings generation
+      pad_to_square: 1
+      input_size: 224
+      normalize:
+        p: 0
+
+  embeddings_model:
+    backbone: ResNet # ViT, ResNet, EffNetV2, SqueezeNet, ConvNext, SwinTransformer
+    arch: resnet101
+    # ResNet          -> resnet18, resnet34, resnet50, resnet101, resnet152
+    # ViT             -> vit_b_16, vit_b_32, vit_l_16, vit_l_32
+    # EffNetV2        -> efficientnet_v2_s, efficientnet_v2_m, efficientnet_v2_l
+    # SwinTransformer -> tiny, small, base
+    # ConvNext        -> tiny, small, base, large
+    emb_size_reduction_status: False
+    emb_size_reduction_heads: 1
+    embedding_size: 512
+    freeze_backbone: False
+    batch_size: 1
+    num_workers: 0
