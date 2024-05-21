@@ -4,5 +4,11 @@ But for now, you can find the figures explaining how proxy optimization, trainin
 
 ### Proxy Optimization
 
-![dml_few_shot-proxy_opt.png](./dml_few_shot-proxy_opt.png)
+![dml_few_shot-proxy_opt.png](dml_few_shot-proxy_opt.png)
+
+### Training
+
+![dml_few_shot-training.png](dml_few_shot-training.png)
+
+### Inference
 

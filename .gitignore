@@ -3,6 +3,7 @@
 *.png
 !dml_few_shot-proxy_opt.png
 !dml_few_shot-training.png
+!dml_few_shot-inference.png
 *.json
 *.pt
 *.pth
