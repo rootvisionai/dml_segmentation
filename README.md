@@ -12,3 +12,5 @@ But for now, you can find the figures explaining how proxy optimization, trainin
 
 ### Inference
 
+![dml_few_shot-inference.png](dml_few_shot-inference.png)
+
