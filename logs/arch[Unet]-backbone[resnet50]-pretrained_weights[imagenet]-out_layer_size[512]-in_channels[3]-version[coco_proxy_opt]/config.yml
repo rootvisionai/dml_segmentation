@@ -60,9 +60,9 @@ proxy_anchor:
 
 inference:
   device: "cuda"
-  num_of_neighbors: 128
+  num_of_neighbors: 32
   threshold: 0.95
-  negative_samples_ratio: 2
+  negative_samples_ratio: 100
 
 #-- Guidance for models' configuration --#
 #  model = UNet(

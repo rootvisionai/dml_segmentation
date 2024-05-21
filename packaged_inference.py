@@ -286,7 +286,7 @@ if __name__ == "__main__":
         "./inference_data/support/800px-2010_brown_BMW_530i_rear.json",
     ]
 
-    out_folder = "bmw_emblems_1"
+    out_folder = "bmw_emblems_0"
     query_images = glob.glob(os.path.join("inference_data", "query", out_folder, "*.jpg"))
     query_images += glob.glob(os.path.join("inference_data", "query", out_folder, "*.jpeg"))
     query_images += glob.glob(os.path.join("inference_data", "query", out_folder, "*.png"))

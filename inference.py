@@ -274,15 +274,15 @@ if __name__ == "__main__":
 
     checkpoint_dir = "arch[Unet]-backbone[resnet50]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]"
     support_image = [
-        "./inference_data/support/rear-view-119.jpg",
-        "./inference_data/support/800px-2010_brown_BMW_530i_rear.jpg",
+        "./inference_data/support/emblem_1.jpg",
+        # "./inference_data/support/800px-2010_brown_BMW_530i_rear.jpg",
     ]
     support_annotation = [
-        "./inference_data/support/rear-view-119.json",
-        "./inference_data/support/800px-2010_brown_BMW_530i_rear.json",
+        "./inference_data/support/emblem_1.json",
+        # "./inference_data/support/800px-2010_brown_BMW_530i_rear.json",
     ]
 
-    out_folder = "bmw_emblems_1"
+    out_folder = "bmw_emblems_0"
     query_images = glob.glob(os.path.join("inference_data", "query", out_folder, "*.jpg"))
     query_images += glob.glob(os.path.join("inference_data", "query", out_folder, "*.jpeg"))
     query_images += glob.glob(os.path.join("inference_data", "query", out_folder, "*.png"))
