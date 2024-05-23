@@ -272,7 +272,7 @@ if __name__ == "__main__":
     import os
     import json
 
-    checkpoint_dir = "arch[Unet]-backbone[resnet50]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]"
+    checkpoint_dir = "arch[UnetPlusPlus]-backbone[resnet101]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]"
     support_image = [
         "./inference_data/support/emblem_1.jpg",
         # "./inference_data/support/800px-2010_brown_BMW_530i_rear.jpg",

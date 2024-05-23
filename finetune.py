@@ -10,8 +10,7 @@ import models
 from utils import load_config
 import losses
 from proxy_anchor_loss import ProxyAnchorLoss
-from transformers import get_scheduler
-
+from torch.optim.lr_scheduler import CosineAnnealingLR
 model = None
 
 
@@ -56,12 +55,7 @@ def main(cfg):
     else:
         proxies = None
 
-    lr_scheduler = get_scheduler(
-        name="linear",
-        optimizer=model.optimizer,
-        num_warmup_steps=0,
-        num_training_steps=cfg.finetune.epochs
-    )
+    lr_scheduler = CosineAnnealingLR(model.optimizer, T_max=cfg.finetune.epochs, eta_min=0.0000001)
 
     loss_hist = collections.deque(maxlen=3)
     for epoch in range(0, cfg.finetune.epochs):

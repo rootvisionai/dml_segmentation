@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # import config
     cfg = load_config(os.path.join(
         "logs",
-        "arch[Unet]-backbone[resnet50]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]",
+        "arch[UnetPlusPlus]-backbone[resnet101]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]",
         "./config.yml"
     ))
     instance = Compile(cfg, "cuda", half_precision=False)

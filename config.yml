@@ -1,6 +1,6 @@
 model:
   arch: "UnetPlusPlus"
-  backbone: "resnet50"
+  backbone: "resnet101"
   pretrained_weights: "imagenet"
   out_layer_size: 512
   in_channels: 3
@@ -8,9 +8,9 @@ model:
 
 data:
   folder_structure: "separate_json" # separate, separate_json, unified
-  dataset: "bmw_support_images"
+  dataset: "bmw_emblem"
   input_size: 224
-  nb_classes: 2
+  nb_classes: 1
 
   crop_image:
       status: 0
@@ -23,7 +23,7 @@ data:
   
     ShiftScaleRotate:
       shift_limit: 0.4
-      scale_limit: 0.99
+      scale_limit: 0.4
       rotate_limit: 360
       probability: 0.8
 
@@ -62,7 +62,7 @@ inference:
   device: "cuda"
   num_of_neighbors: 64
   threshold: 0.95
-  negative_samples_ratio: 100
+  negative_samples_ratio: 20
 
 #-- Guidance for models' configuration --#
 #  model = UNet(

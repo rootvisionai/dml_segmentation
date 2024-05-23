@@ -8,9 +8,9 @@ model:
 
 data:
   folder_structure: "separate_json" # separate, separate_json, unified
-  dataset: "coco"
+  dataset: "bmw_emblem"
   input_size: 224
-  nb_classes: 80
+  nb_classes: 1
 
   crop_image:
       status: 0
@@ -62,6 +62,7 @@ inference:
   device: "cuda"
   num_of_neighbors: 64
   threshold: 0.95
+  negative_samples_ratio: 20
 
 #-- Guidance for models' configuration --#
 #  model = UNet(
