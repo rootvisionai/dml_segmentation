@@ -39,6 +39,34 @@ In summary, this process uses input images and masks to extract features, sample
 
 ![dml_few_shot-training.png](dml_few_shot-training.png)
 
+# Diagram Explanation
+
+Here’s a step-by-step breakdown:
+
+1. **Input Image**:
+   - An input image of size \(224 \times 224 \times 3\) is provided.
+
+2. **Model Backbone**:
+   - The input image is passed through a model backbone, which is a neural network feature extractor that processes the image and produces an output feature map of size \(224 \times 224 \times 512\).
+
+3. **Input Mask**:
+   - An input mask of size \(224 \times 224 \times N\) is also provided, where \(N\) represents different regions or channels of interest in the image.
+
+4. **Proxies**:
+   - The feature map is used to generate proxies, which are representative vectors for different classes (e.g., blue proxy for class 1 and green proxy for class 2).
+
+5. **Proxy Anchor Loss**:
+   - A proxy anchor loss is calculated based on the distance between the generated proxies and the corresponding feature vectors. This loss helps in adjusting the proxies to better represent their respective classes as well.
+
+6. **Loss Calculation**:
+   - The overall loss, which includes the proxy anchor loss, is calculated. This loss is then backpropagated through the model backbone.
+
+7. **Backpropagation**:
+   - The loss is used to update the model parameters through backpropagation. This process adjusts the model to minimize the loss and improve its performance on the task.
+
+In summary, this process involves using input images and masks to extract features, calculate the proxy anchor loss, and backpropagate this loss to optimize the model and the proxies.
+
+
 ### Inference
 
 ![dml_few_shot-inference.png](dml_few_shot-inference.png)
