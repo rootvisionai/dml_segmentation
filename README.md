@@ -39,8 +39,6 @@ In summary, this process uses input images and masks to extract features, sample
 
 ![dml_few_shot-training.png](dml_few_shot-training.png)
 
-# Diagram Explanation
-
 Here’s a step-by-step breakdown:
 
 1. **Input Image**:
@@ -70,4 +68,36 @@ In summary, this process involves using input images and masks to extract featur
 ### Inference
 
 ![dml_few_shot-inference.png](dml_few_shot-inference.png)
+
+This diagram represents a machine learning process involving support images, support masks, and query images to generate a result mask using a k-nearest neighbors (KNN) module. Here’s a step-by-step breakdown:
+
+1. **Support Image**:
+   - A support image of size \(224 \times 224 \times 3\) is provided, containing the object of interest.
+
+2. **Support Mask**:
+   - A corresponding support mask of size \(224 \times 224 \times N\) is provided, highlighting the regions of interest within the support image.
+
+3. **Model Backbone (Support)**:
+   - The support image is passed through a model backbone, a neural network feature extractor, which produces an output feature map of size \(224 \times 224 \times 512\).
+
+4. **Support Vectors**:
+   - The feature map is divided into positive and negative support vectors:
+     - **Positive Support Vectors** (green): Represent regions of interest.
+     - **Negative Support Vectors** (red): Represent background region.
+   - These vectors are sampled based on a negative_samples_ratio parameter.
+
+5. **Query Image**:
+   - A query image of size \(224 \times 224 \times 3\) is provided for which the corresponding mask needs to be predicted.
+
+6. **Model Backbone (Query)**:
+   - The query image is passed through the same model backbone to produce a feature map of size \(224 \times 224 \times 512\).
+
+7. **KNN Module**:
+   - The positive and negative support vectors are fed into a K-nearest neighbors (KNN) module along with the feature map of the query image.
+   - The KNN module performs inference on query image vectors using the support vectors to predict the mask for the query image.
+
+8. **Result Mask**:
+   - The KNN module generates the result mask, highlighting the regions of interest in the query image.
+
+In summary, this process uses support images and masks to extract feature vectors, which are then used by a KNN module to predict the mask for a query image, thereby identifying regions of interest.
 
