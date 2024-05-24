@@ -1,6 +1,6 @@
 ## Here will be updated later!
 
-But for now, you can find the figures explaining how proxy optimization, training and inference works.
+But for now, you can find the figures explaining how proxy optimization, training, and inference work.
 
 ### Checkpoints
 - [UNet++/ResNet101](https://drive.google.com/drive/folders/1COMCg4YN6Taw9SzO7FLgPdbP6aN8ZuMK?usp=sharing)
@@ -12,13 +12,13 @@ But for now, you can find the figures explaining how proxy optimization, trainin
 Here’s a step-by-step breakdown:
 
 1. **Input Image**:
-   - An input image of size \(224 \times 224 \times 3\) is provided.
+   - An input image of size \(224\times224\times3\) is provided.
 
 2. **Model Backbone**:
    - The input image is passed through a model backbone, a neural network feature extractor that processes the image and produces an output feature map of size \(224 \times 224 \times 512\).
 
 3. **Input Mask**:
-   - An input mask of size \(224 \times 224 \times N\) is also provided, where \(N\) represents different regions or channels of interest in the image.
+   - An input mask of size \(224\times224\timesN\) is also provided, where \(N\) represents different regions or channels of interest in the image.
 
 4. **Class Proxy Candidates**:
    - The feature map is used to generate proxy candidates for each class (e.g., Class 1, Class 2, Class 3). The diagram shows sampling from the feature maps to create these proxy candidates.
