@@ -4,6 +4,7 @@
 !media/dml_few_shot-proxy_opt.png
 !media/dml_few_shot-training.png
 !media/dml_few_shot-inference.png
+!media/pytorch-installation-page.png
 *.json
 *.pt
 *.pth
