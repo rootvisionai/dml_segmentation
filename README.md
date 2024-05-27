@@ -184,3 +184,11 @@ This diagram represents a machine learning process involving support images, sup
 
 In summary, this process uses support images and masks to extract feature vectors, which are then used by a KNN module to predict the mask for a query image, thereby identifying regions of interest.
 
+## Cite as
+@misc{rootvisionai_dml_segmentation,
+  author = {Tekin Evrim Ozmermer, Nikita Karpuks},
+  title = {Deep Metric Learning for Few-shot Segmentation},
+  year = {2024},
+  publisher = {GitHub},
+  howpublished = {\url{https://github.com/rootvisionai/dml_segmentation}},
+}
