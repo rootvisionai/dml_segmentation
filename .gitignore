@@ -1,9 +1,9 @@
 *.jpg
 *.jpeg
 *.png
-!dml_few_shot-proxy_opt.png
-!dml_few_shot-training.png
-!dml_few_shot-inference.png
+!media/dml_few_shot-proxy_opt.png
+!media/dml_few_shot-training.png
+!media/dml_few_shot-inference.png
 *.json
 *.pt
 *.pth
@@ -18,5 +18,5 @@
 __pycache__
 *.pyc
 /pretrained/
-/.$dml_few_shot.drawio.bkp
-/dml_few_shot.drawio
+media/.$dml_few_shot.drawio.bkp
+media/dml_few_shot.drawio

@@ -1,4 +1,4 @@
-model:
+model: # reference: https://github.com/qubvel/segmentation_models.pytorch
   arch: "UnetPlusPlus"
   backbone: "resnet101"
   pretrained_weights: "imagenet"
@@ -8,7 +8,7 @@ model:
 
 data:
   folder_structure: "separate_json" # separate, separate_json, unified
-  dataset: "bmw_emblem"
+  dataset: "coco"
   input_size: 224
   nb_classes: 1
 
@@ -64,46 +64,10 @@ inference:
   threshold: 0.95
   negative_samples_ratio: 20
 
-#-- Guidance for models' configuration --#
-#  model = UNet(
-#      num_classes=cfg.model.num_classes,
-#      in_channels=3,
-#      freeze_bn=cfg.model.freeze_bn
-#  )
-
-#  model = UNetResnet(
-#      num_classes=cfg.model.num_classes,
-#      in_channels=3,
-#      backbone=cfg.model.backbone,
-#      pretrained=True,
-#      freeze_bn=cfg.model.freeze_bn,
-#      freeze_backbone=cfg.model.freeze_backbone
-#  )
-
-#  model = DeepLab(
-#      num_classes=cfg.model.num_classes,
-#      in_channels=3,
-#      backbone=cfg.model.backbone,
-#      pretrained=True,
-#      output_stride=cfg.model.output_stride,
-#      freeze_bn=cfg.model.freeze_bn,
-#      freeze_backbone=cfg.model.freeze_backbone
-#  )
-
-#  model = DeepLabX(
-#      num_classes=cfg.model.num_classes,
-#      in_channels=3,
-#      backbone=cfg.model.backbone,
-#      pretrained=True,
-#      output_stride=cfg.model.output_stride,
-#      freeze_bn=cfg.model.freeze_bn,
-#      freeze_backbone=cfg.model.freeze_backbone
-#  )
-
-sam:
+sam: # experimental
   visualise: False # visualize sam inference
   sam_model_name: "vit_b" # "vit_l" or "vit_b"
-  sam_model_path: C:\Users\evrim\.cache\torch\hub\checkpoints\sam_vit_b_01ec64.pth # you should have the model in local
+  sam_model_path: path_to_sam\sam_vit_b_01ec64.pth # you should have the model in local
 
   data:
     root_path: "./sam/"
