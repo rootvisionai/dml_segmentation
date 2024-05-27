@@ -71,29 +71,20 @@ python finetune.py
 ### Inference
 If you want to run inference with raw model weights, you should use
 ```commandline
-python inference.py
+python inference.py --checkpoint_dir "some_dir" --support_image path1.jpg path2.jpg --support_annotation path1.json path2.json --inout_folder "output_folder"
 ```
-(For now, the code should be adjusted for the choosing the model,
-support images & masks and query (inference) images.
-This will be parametrized later with argument parser)
 
 ### Model packaging
 If you want to package your model with JIT Compiler, you should run
 ```commandline
-python package_model.py
+python package_model.py --checkpoint_dir "some_dir" --device cuda
 ```
-(For now, the code should be adjusted for the choosing the 
-model that should be packaged.
-This will be parametrized later with argument parser)
 
 ### Inference
 If you want to run inference with packaged(jit compiled) model, you should use
 ```commandline
-python packaged_inference.py
+python packaged_inference.py --checkpoint_dir "some_dir" --support_image path1.jpg path2.jpg --support_annotation path1.json path2.json --inout_folder "output_folder"
 ```
-(For now, the code should be adjusted for the choosing the model,
-support images & masks and query (inference) images.
-This will be parametrized later with argument parser)
 
 ## How it works
 

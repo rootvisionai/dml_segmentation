@@ -297,7 +297,7 @@ if __name__ == "__main__":
         help='List of support annotation paths.'
     )
     parser.add_argument(
-        '--out_folder',
+        '--inout_folder',
         default="./inference_data/query/bmw_emblems_0",
         type=str,
         help='Output folder name.'
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     checkpoint_dir = args.checkpoint_dir
     support_image = args.support_image
     support_annotation = args.support_annotation
-    out_folder = args.out_folder
+    out_folder = args.inout_folder
 
     query_images = glob.glob(os.path.join(out_folder, "*.jpg"))
     query_images += glob.glob(os.path.join(out_folder, "*.jpeg"))
