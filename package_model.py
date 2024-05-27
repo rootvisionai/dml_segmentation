@@ -4,8 +4,6 @@ import time
 import os
 
 import models
-from utils import load_config
-
 
 class Compile:
     def __init__(self, cfg, device, half_precision):
@@ -25,8 +23,8 @@ class Compile:
         checkpoint_path = os.path.join(self.checkpoint_dir, "ckpt_finetuned.pth")
 
         model = models.load(cfg)
-        model.load_checkpoint(checkpoint_path, device=cfg.training.device, load_opt=False)
-        model.to(self.device).to(torch.float32)
+        model.load_checkpoint(checkpoint_path, device=device, load_opt=False)
+        model.to(device).to(torch.float32)
         model.eval()
         self.model = model.half() if self.half_precision else model
 
@@ -67,13 +65,42 @@ class Compile:
         )
 
 if __name__ == "__main__":
-    # import config
+    from utils import load_config
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Run inference on query images."
+    )
+    parser.add_argument(
+        '--checkpoint_dir',
+        default="arch[UnetPlusPlus]-backbone[resnet101]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]",
+        type=str,
+        help='Directory containing the checkpoint.'
+    )
+    parser.add_argument(
+        '--device',
+        default="cuda",
+        type=str,
+        help='"cpu" or "cuda"'
+    )
+    parser.add_argument(
+        '--half_precision',
+        action='store_false',
+        help='for half precision, do not use yet! it is not ready!'
+    )
+
+    args = parser.parse_args()
+    checkpoint_dir = args.checkpoint_dir
+    device = args.device
+    half_precision = args.half_precision
+
     cfg = load_config(os.path.join(
         "logs",
-        "arch[UnetPlusPlus]-backbone[resnet101]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]",
+        checkpoint_dir,
         "./config.yml"
     ))
-    instance = Compile(cfg, "cuda", half_precision=False)
+
+    instance = Compile(cfg, device, half_precision=half_precision)
     instance.run()
     instance.save()
     instance.load()

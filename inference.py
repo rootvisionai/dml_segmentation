@@ -271,21 +271,48 @@ if __name__ == "__main__":
     import glob
     import os
     import json
+    import argparse
 
-    checkpoint_dir = "arch[UnetPlusPlus]-backbone[resnet101]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]"
-    support_image = [
-        "./inference_data/support/emblem_1.jpg",
-        # "./inference_data/support/800px-2010_brown_BMW_530i_rear.jpg",
-    ]
-    support_annotation = [
-        "./inference_data/support/emblem_1.json",
-        # "./inference_data/support/800px-2010_brown_BMW_530i_rear.json",
-    ]
+    parser = argparse.ArgumentParser(
+        description="Run inference on query images."
+    )
+    parser.add_argument(
+        '--checkpoint_dir',
+        default="arch[UnetPlusPlus]-backbone[resnet101]-pretrained_weights[imagenet]-out_layer_size[512]-in_channels[3]-version[coco_proxy_opt]",
+        type=str,
+        help='Directory containing the checkpoint.'
+    )
+    parser.add_argument(
+        '--support_image',
+        default=["./inference_data/support/emblem_1.jpg"],
+        type=str,
+        nargs='+',
+        help='List of support image paths.'
+    )
+    parser.add_argument(
+        '--support_annotation',
+        default=["./inference_data/support/emblem_1.json"],
+        type=str,
+        nargs='+',
+        help='List of support annotation paths.'
+    )
+    parser.add_argument(
+        '--out_folder',
+        default="./inference_data/query/bmw_emblems_0",
+        type=str,
+        help='Output folder name.'
+    )
 
-    out_folder = "bmw_emblems_0"
-    query_images = glob.glob(os.path.join("inference_data", "query", out_folder, "*.jpg"))
-    query_images += glob.glob(os.path.join("inference_data", "query", out_folder, "*.jpeg"))
-    query_images += glob.glob(os.path.join("inference_data", "query", out_folder, "*.png"))
+    args = parser.parse_args()
+
+    checkpoint_dir = args.checkpoint_dir
+    support_image = args.support_image
+    support_annotation = args.support_annotation
+    out_folder = args.out_folder
+
+    query_images = glob.glob(os.path.join(out_folder, "*.jpg"))
+    query_images += glob.glob(os.path.join(out_folder, "*.jpeg"))
+    query_images += glob.glob(os.path.join(out_folder, "*.png"))
 
     cfg = load_config(os.path.join(
         "logs",
