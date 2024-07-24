@@ -1,3 +1,6 @@
+### Blog Post
+--- [Link to Medium](https://tekinevrim.medium.com/few-shot-segmentation-in-computer-vision-5e922f96f7fd) ---
+
 ## Installation
 
 ``` Anaconda Prompt
